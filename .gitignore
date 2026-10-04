@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Test / coverage output
+coverage/
+.vitest/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment — never commit secrets (AGENTS.md 11.4)
+.env
+.env.*
+!.env.example
+
+# Caches
+.cache/
+.eslintcache
+
+# Prisma — generated client is derived from schema.prisma, not source.
+# Regenerate with `npm run prisma:generate` after install.
+server/generated/
+node_modules/.prisma/
