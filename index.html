@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>TaskForge</title>
+    <script>
+      // Applied before first paint so there is no flash of the wrong theme
+      // (design-system.md 7.2). Phase 0 stores no theme preference server-side;
+      // the read is local and synchronous.
+      ;(function () {
+        try {
+          var stored = window.localStorage.getItem('taskforge.theme')
+          if (stored === 'light' || stored === 'dark') {
+            document.documentElement.setAttribute('data-theme', stored)
+          }
+        } catch (e) {
+          // Storage unavailable (private mode / disabled). Fall through to the
+          // light default declared on <html>. Never a hard failure.
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
