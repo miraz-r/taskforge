@@ -1,0 +1,506 @@
+/* ==========================================================================
+   TaskForge — design tokens and base layer
+   Source of truth: docs/design-system.md
+
+   This file implements sections 2 (colour), 3 (typography), 4 (spacing,
+   layout, radii, elevation), 5 (responsive), 7 (theme) and 9 (motion) of the
+   design system. Every visual value used anywhere in the application resolves
+   to a token declared here (NFR-VIS-001). A literal hex, pixel value, or
+   duration in a component is a defect (design-system.md 12.1, AC-VIS-05).
+
+   TOKEN NAMING (design-system.md 11.1)
+     Documented token   CSS custom property            Tailwind utility
+     ---------------    ----------------------         ----------------
+     color.brand.600    --tf-color-brand-600           bg-brand-600
+     color.bg.surface   --tf-color-bg-surface          bg-bg-surface
+     color.text.primary --tf-color-text-primary        text-text-primary
+     color.border.subtle --tf-color-border-subtle      border-border-subtle
+     color.status.*     --tf-color-status-<s>-<r>     bg-status-<s>-<r>
+
+   The full documented category path is kept in the utility name. Verbosity is
+   accepted deliberately: it guarantees no name collision, and it makes every
+   colour greppable back to design-system.md section 2.
+   ========================================================================== */
+
+@import 'tailwindcss';
+
+/* --------------------------------------------------------------------------
+   1. Token values — light theme (design-system.md 2)
+   -------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    /* Brand — the primary cyan (2.1) */
+    --tf-color-brand-600: #16a6b5;
+    --tf-color-brand-700: #128795;
+    --tf-color-brand-800: #0e6a75;
+    --tf-color-brand-100: #dff4f6;
+    --tf-color-brand-200: #a8e4ea;
+
+    /* Accent — champagne (2.1) */
+    --tf-color-accent-500: #d6a66a;
+    --tf-color-accent-600: #bc8e52;
+
+    /* Surfaces — white-first, single off-white step (2.2) */
+    --tf-color-bg-canvas: #ffffff;
+    --tf-color-bg-surface: #ffffff;
+    --tf-color-bg-subtle: #f7f9fa;
+    --tf-color-bg-muted: #eff2f4;
+    --tf-color-bg-overlay: rgb(16 22 26 / 0.44);
+    --tf-color-bg-inverse: #1b1e21;
+
+    /* Text — graphite; pure black is never used (2.3) */
+    --tf-color-text-primary: #1f2429;
+    --tf-color-text-secondary: #525c63;
+    --tf-color-text-muted: #7a848c;
+    --tf-color-text-inverse: #ffffff;
+    --tf-color-text-brand: #0e6a75;
+    --tf-color-text-danger: #b3261e;
+    --tf-color-text-success: #1e6b3a;
+    --tf-color-text-warning: #8a5a00;
+    --tf-color-text-on-accent: #3d2c10;
+
+    /* Borders and dividers (2.4) */
+    --tf-color-border-subtle: #edf0f2;
+    --tf-color-border-default: #dfe4e7;
+    --tf-color-border-strong: #c3cbd1;
+    --tf-color-border-focus: #16a6b5;
+    --tf-color-border-danger: #f3c6c3;
+
+    /* Status (2.5) — never the sole carrier of meaning (8.5) */
+    --tf-color-status-success-bg: #e7f4ec;
+    --tf-color-status-success-border: #a8d9bc;
+    --tf-color-status-success-text: #1e6b3a;
+    --tf-color-status-warning-bg: #fdf3e2;
+    --tf-color-status-warning-border: #ebd3a2;
+    --tf-color-status-warning-text: #8a5a00;
+    --tf-color-status-danger-bg: #fcebeb;
+    --tf-color-status-danger-border: #f0b4b0;
+    --tf-color-status-danger-text: #b3261e;
+    --tf-color-status-info-bg: #e4f3f6;
+    --tf-color-status-info-border: #a5dce4;
+    --tf-color-status-info-text: #0e6a75;
+    --tf-color-status-neutral-bg: #f1f4f5;
+    --tf-color-status-neutral-text: #525c63;
+
+    /* Elevation (4.7) — borders separate regions; shadows are for floating
+       surfaces only */
+    --tf-shadow-none: none;
+    --tf-shadow-sm: 0 1px 2px rgb(16 22 26 / 0.06);
+    --tf-shadow-md: 0 4px 12px rgb(16 22 26 / 0.1);
+    --tf-shadow-lg: 0 16px 40px rgb(16 22 26 / 0.16);
+    --tf-shadow-focus-ring: rgb(22 166 181 / 0.28);
+    --tf-shadow-focus:
+      0 0 0 2px var(--tf-color-bg-surface), 0 0 0 4px
+      var(--tf-shadow-focus-ring);
+  }
+
+  /* ----------------------------------------------------------------------
+     Dark theme. Same keys, different values (2.7 theme parity). The hue is
+     constant; only lightness changes (2.1).
+     ---------------------------------------------------------------------- */
+  [data-theme='dark'] {
+    --tf-color-brand-600: #2bc4d4;
+    --tf-color-brand-700: #1fa3b2;
+    --tf-color-brand-800: #17838f;
+    --tf-color-brand-100: #0d3b42;
+    --tf-color-brand-200: #12525c;
+
+    --tf-color-accent-500: #e3b87f;
+    --tf-color-accent-600: #cfa067;
+
+    --tf-color-bg-canvas: #141618;
+    --tf-color-bg-surface: #1b1e21;
+    --tf-color-bg-subtle: #22262a;
+    --tf-color-bg-muted: #2a2f34;
+    --tf-color-bg-overlay: rgb(0 0 0 / 0.6);
+    --tf-color-bg-inverse: #ffffff;
+
+    --tf-color-text-primary: #edeff1;
+    --tf-color-text-secondary: #a8b0b7;
+    --tf-color-text-muted: #79838b;
+    --tf-color-text-inverse: #141618;
+    --tf-color-text-brand: #2bc4d4;
+    --tf-color-text-danger: #f2857c;
+    --tf-color-text-success: #5cc98a;
+    --tf-color-text-warning: #e0b158;
+    --tf-color-text-on-accent: #241a08;
+
+    --tf-color-border-subtle: #262a2e;
+    --tf-color-border-default: #31373c;
+    --tf-color-border-strong: #3d444a;
+    --tf-color-border-focus: #2bc4d4;
+    --tf-color-border-danger: #5a2e2b;
+
+    --tf-color-status-success-bg: #12301f;
+    --tf-color-status-success-border: #1e5236;
+    --tf-color-status-success-text: #5cc98a;
+    --tf-color-status-warning-bg: #33280f;
+    --tf-color-status-warning-border: #54431c;
+    --tf-color-status-warning-text: #e0b158;
+    --tf-color-status-danger-bg: #331a18;
+    --tf-color-status-danger-border: #5a2e2b;
+    --tf-color-status-danger-text: #f2857c;
+    --tf-color-status-info-bg: #0e333a;
+    --tf-color-status-info-border: #17535e;
+    --tf-color-status-info-text: #2bc4d4;
+    --tf-color-status-neutral-bg: #262b30;
+    --tf-color-status-neutral-text: #a8b0b7;
+
+    /* Dark-theme shadows are weaker: on charcoal, opacity reads far more
+       strongly (4.7) */
+    --tf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.03);
+    --tf-shadow-md: 0 4px 12px rgb(0 0 0 / 0.05);
+    --tf-shadow-lg: 0 16px 40px rgb(0 0 0 / 0.08);
+    --tf-shadow-focus-ring: rgb(43 196 212 / 0.32);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Token exposure to Tailwind.
+
+   `inline` makes the generated utility carry the var() reference verbatim
+   rather than a var pointing at a theme variable, so switching
+   data-theme="light"|"dark" re-resolves every value with no rebuild and no
+   JavaScript touching component styles (7.1, 7.2, AC-VIS-03).
+   -------------------------------------------------------------------------- */
+@theme inline {
+  /* Colour */
+  --color-brand-600: var(--tf-color-brand-600);
+  --color-brand-700: var(--tf-color-brand-700);
+  --color-brand-800: var(--tf-color-brand-800);
+  --color-brand-100: var(--tf-color-brand-100);
+  --color-brand-200: var(--tf-color-brand-200);
+
+  --color-accent-500: var(--tf-color-accent-500);
+  --color-accent-600: var(--tf-color-accent-600);
+
+  --color-bg-canvas: var(--tf-color-bg-canvas);
+  --color-bg-surface: var(--tf-color-bg-surface);
+  --color-bg-subtle: var(--tf-color-bg-subtle);
+  --color-bg-muted: var(--tf-color-bg-muted);
+  --color-bg-overlay: var(--tf-color-bg-overlay);
+  --color-bg-inverse: var(--tf-color-bg-inverse);
+
+  --color-text-primary: var(--tf-color-text-primary);
+  --color-text-secondary: var(--tf-color-text-secondary);
+  --color-text-muted: var(--tf-color-text-muted);
+  --color-text-inverse: var(--tf-color-text-inverse);
+  --color-text-brand: var(--tf-color-text-brand);
+  --color-text-danger: var(--tf-color-text-danger);
+  --color-text-success: var(--tf-color-text-success);
+  --color-text-warning: var(--tf-color-text-warning);
+  --color-text-on-accent: var(--tf-color-text-on-accent);
+
+  --color-border-subtle: var(--tf-color-border-subtle);
+  --color-border-default: var(--tf-color-border-default);
+  --color-border-strong: var(--tf-color-border-strong);
+  --color-border-focus: var(--tf-color-border-focus);
+  --color-border-danger: var(--tf-color-border-danger);
+
+  --color-status-success-bg: var(--tf-color-status-success-bg);
+  --color-status-success-border: var(--tf-color-status-success-border);
+  --color-status-success-text: var(--tf-color-status-success-text);
+  --color-status-warning-bg: var(--tf-color-status-warning-bg);
+  --color-status-warning-border: var(--tf-color-status-warning-border);
+  --color-status-warning-text: var(--tf-color-status-warning-text);
+  --color-status-danger-bg: var(--tf-color-status-danger-bg);
+  --color-status-danger-border: var(--tf-color-status-danger-border);
+  --color-status-danger-text: var(--tf-color-status-danger-text);
+  --color-status-info-bg: var(--tf-color-status-info-bg);
+  --color-status-info-border: var(--tf-color-status-info-border);
+  --color-status-info-text: var(--tf-color-status-info-text);
+  --color-status-neutral-bg: var(--tf-color-status-neutral-bg);
+  --color-status-neutral-text: var(--tf-color-status-neutral-text);
+
+  /* Elevation (4.7) */
+  --shadow-none: var(--tf-shadow-none);
+  --shadow-sm: var(--tf-shadow-sm);
+  --shadow-md: var(--tf-shadow-md);
+  --shadow-lg: var(--tf-shadow-lg);
+  --shadow-focus: var(--tf-shadow-focus);
+
+  /* Radii (4.6) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* Type scale (3.2) — 1.200 minor third from a 14px base */
+  --text-overline: 11px;
+  --text-overline--line-height: 14px;
+  --text-overline--letter-spacing: 0.4px;
+  --text-overline--font-weight: 600;
+
+  --text-meta: 12px;
+  --text-meta--line-height: 16px;
+  --text-meta--font-weight: 400;
+
+  --text-label: 13px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 500;
+
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 19px;
+  --text-body-sm--font-weight: 400;
+
+  --text-body: 14px;
+  --text-body--line-height: 21px;
+  --text-body--font-weight: 400;
+
+  --text-body-lg: 15px;
+  --text-body-lg--line-height: 22px;
+  --text-body-lg--font-weight: 400;
+
+  --text-h3: 16px;
+  --text-h3--line-height: 22px;
+  --text-h3--letter-spacing: -0.1px;
+  --text-h3--font-weight: 600;
+
+  --text-h2: 18px;
+  --text-h2--line-height: 24px;
+  --text-h2--letter-spacing: -0.2px;
+  --text-h2--font-weight: 600;
+
+  --text-h1: 22px;
+  --text-h1--line-height: 28px;
+  --text-h1--letter-spacing: -0.3px;
+  --text-h1--font-weight: 600;
+
+  --text-display: 28px;
+  --text-display--line-height: 34px;
+  --text-display--letter-spacing: -0.4px;
+  --text-display--font-weight: 600;
+
+  /* Families (3.1). System fallbacks precede any web font, so the interface
+     stays fully functional without one (3.1, 9.7). Numeric values use the
+     monospaced face so figures align. */
+  --font-sans:
+    Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Breakpoints (5.1, 11.8) */
+  --breakpoint-sm: 0px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+
+  /* Easing (9.4) */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --ease-linear: linear;
+
+  /* Motion (9.3) */
+  --tf-motion-instant: 0ms;
+  --tf-motion-fast: 100ms;
+  --tf-motion-base: 150ms;
+  --tf-motion-slow: 200ms;
+  --tf-motion-slower: 280ms;
+
+  /* Spacing (4.1). Tailwind's 4px base with a 2px half-step is the same scale,
+     so the numeric utilities resolve to space.0 … space.12 by construction. */
+  --spacing: 4px;
+
+  /* Layout (11.8) */
+  --tf-sidebar-width: 240px;
+  --tf-content-form: 400px;
+  --tf-content-reading: 640px;
+}
+
+/* --------------------------------------------------------------------------
+   3. Layout tokens that vary by breakpoint (4.3, 5.2)
+   -------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    --tf-gutter: 16px; /* < 768px */
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --tf-gutter: 20px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --tf-gutter: 24px;
+    }
+  }
+
+  /* design-system 5.1/5.2: the sidebar is 240px from bp.lg and widens to 256px
+     only at bp.xl. */
+  @media (min-width: 1280px) {
+    :root {
+      --tf-gutter: 32px;
+      --tf-sidebar-width: 256px;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. Base styles
+   -------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--tf-color-bg-canvas);
+    color: var(--tf-color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 21px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* One h1 per view; levels never skip (3.4, 8.4). Tailwind's preflight keeps
+     headings at browser-default sizes, which would break the type scale, so the
+     scale is re-applied from the tokens. */
+  h1 {
+    font-size: var(--text-h1);
+    line-height: var(--text-h1--line-height);
+    font-weight: var(--text-h1--font-weight);
+    letter-spacing: var(--text-h1--letter-spacing);
+    margin: 0;
+  }
+  h2 {
+    font-size: var(--text-h2);
+    line-height: var(--text-h2--line-height);
+    font-weight: var(--text-h2--font-weight);
+    letter-spacing: var(--text-h2--letter-spacing);
+    margin: 0;
+  }
+  h3 {
+    font-size: var(--text-h3);
+    line-height: var(--text-h3--line-height);
+    font-weight: var(--text-h3--font-weight);
+    letter-spacing: var(--text-h3--letter-spacing);
+    margin: 0;
+  }
+
+  /* Focus indicators are declared in @layer utilities below — they must beat
+     component utilities such as `transition-colors`. */
+
+  /* Long-form content is always constrained; work surfaces are not (4.2). */
+  .tf-measure-form {
+    max-width: var(--tf-content-form);
+  }
+  .tf-measure-reading {
+    max-width: var(--tf-content-reading);
+  }
+
+  /* Numeric values align in tables and metric tiles (3.1). */
+  .tf-numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4b. Focus indicators — design-system 8.3, 9.5
+
+   Declared in the `utilities` layer, not `base`, and deliberately. Cascade
+   layers beat specificity: a rule in `base` loses to `transition-colors` in
+   `utilities` no matter how specific it is. Because `transition-colors`
+   includes `outline-color`, a base-layer ring would animate in over 100ms —
+   and a delayed focus indicator is an accessibility failure (9.5).
+
+   Applied globally so focus can never be removed by a component that forgets.
+   2px ring at 2px offset, drawn outside the control so it is never clipped.
+   :focus-visible keeps the ring off for pointer interaction while it is always
+   present for keyboard interaction.
+   -------------------------------------------------------------------------- */
+@layer utilities {
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--tf-color-border-focus);
+    outline-offset: 2px;
+    transition-property: none;
+  }
+
+  /* Controls sitting on a brand or danger fill would otherwise carry a cyan
+     ring on cyan, which is not distinguishable. These carry the two-layer
+     focus token instead (8.10). */
+  .tf-on-brand:focus-visible {
+    outline-color: var(--tf-color-border-focus);
+    box-shadow: var(--tf-shadow-focus);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Loading skeleton (6.13, 9.5)
+   A single low-opacity sweep over bg.muted. transform only, so it paints on the
+   compositor and never triggers layout (9.2).
+   -------------------------------------------------------------------------- */
+@keyframes tf-skeleton-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@layer components {
+  .tf-skeleton {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--tf-color-bg-muted);
+  }
+
+  .tf-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.45),
+      transparent
+    );
+    animation: tf-skeleton-sweep 1200ms var(--ease-linear) infinite;
+  }
+
+  [data-theme='dark'] .tf-skeleton::after {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.06),
+      transparent
+    );
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Reduced motion (8.9, 9.6, NFR-MOTION-001..004)
+
+   Non-essential animation is suppressed. Where a motion token conflicts with
+   reduced motion, reduced motion wins (NFR-MOTION-003). Functionality must
+   remain fully operable and understandable (NFR-MOTION-002) — nothing in
+   TaskForge depends on motion to be understood, so removing it entirely is
+   safe and is the specified fallback.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* The skeleton becomes a static bg.muted block (9.6). */
+  .tf-skeleton::after {
+    display: none;
+  }
+}
