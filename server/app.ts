@@ -16,7 +16,7 @@
 import express, { type Express } from 'express'
 import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
-import { rateLimit } from 'express-rate-limit'
+import { createAuthLimiter } from './http/authRateLimit'
 import type { AppConfig } from './config'
 import { attachActor } from './middleware'
 import { errorHandler, notFoundHandler } from './http/errors'
@@ -70,29 +70,19 @@ export function createApp({ config, services }: CreateAppOptions): Express {
   app.use(cookieParser())
 
   /**
-   * Rate limiting on credential endpoints. A fixed window keyed by client IP;
-   * `standardHeaders` makes the limit legible to well-behaved clients.
+   * Rate limiting on the credential endpoints. See `http/authRateLimit.ts` for
+   * exactly what this does and does not guarantee — in short, only failed
+   * attempts consume the allowance, and an exhausted key is refused for the rest
+   * of the window even if the credentials presented are correct. That is the
+   * brute-force protection, not an oversight.
    *
    * `trust proxy` above controls whether the IP is taken from X-Forwarded-For,
    * so this is only as trustworthy as the proxy configuration.
    */
-  const authLimiter = rateLimit({
+  const authLimiter = createAuthLimiter({
     windowMs: config.AUTH_RATE_WINDOW_MS,
     limit: config.AUTH_RATE_LIMIT,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    // Successful registrations and sign-ins are not abuse; only failures count
-    // toward the limit, so a legitimate user is never locked out by typing
-    // correctly.
-    skipSuccessfulRequests: true,
-    handler: (_req, res) => {
-      res.status(429).json({
-        error: {
-          code: 'rate_limited',
-          message: 'Too many attempts. Please wait a few minutes and try again.',
-        },
-      })
-    },
+    standardHeaders: true,
   })
 
   app.get('/api/health', (_req, res) => {
