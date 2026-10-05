@@ -29,8 +29,10 @@ export default tseslint.config(
   },
 
   // Server. No JSX, no DOM; Node globals instead of browser globals.
+  // `scripts/` holds the development and test-runner entry points, which run in
+  // the same Node environment as the server and are held to the same rules.
   {
-    files: ['server/**/*.ts', 'prisma.config.ts'],
+    files: ['server/**/*.ts', 'scripts/**/*.ts', 'prisma.config.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
