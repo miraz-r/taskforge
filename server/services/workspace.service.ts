@@ -53,7 +53,12 @@ export class WorkspaceService {
     }
 
     // The owner is derived from the session actor, never from the request body.
-    const id = `wsp_${randomUUID()}`
+    //
+    // A bare UUID, with no type prefix. `Workspace.id` is a `uuid` column, so a
+    // prefixed string is rejected by PostgreSQL. The earlier `wsp_${randomUUID()}`
+    // form satisfied every MemoryStore test and still made workspace creation
+    // fail against a real database with `invalid input syntax for type uuid`.
+    const id = randomUUID()
 
     return this.store.workspaces.insert({
       workspace: { id, name, ownerId: actor.userId },

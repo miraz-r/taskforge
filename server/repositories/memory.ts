@@ -51,7 +51,15 @@ export class MemoryStore implements Store {
 
   seedUser(input: CreateUserInput & { id?: string }): UserRecord {
     const user: UserRecord = {
-      id: input.id ?? `usr_${randomUUID()}`,
+      // A bare UUID, matching PostgreSQL's `User.id uuid` column.
+      //
+      // Only user ids need this. `assigneeId` is the one identifier a client can
+      // send across the API boundary, and `updateTaskBodySchema` validates it as a
+      // canonical UUID — so a prefixed id here would let a test assert behaviour
+      // the real database rejects. Workspace, project and task ids are generated
+      // server-side and never appear in a request body, so their prefixed form is
+      // invisible to validation and is left alone.
+      id: input.id ?? randomUUID(),
       email: input.email,
       displayName: input.displayName,
       passwordHash: input.passwordHash,

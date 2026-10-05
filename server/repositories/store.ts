@@ -43,8 +43,10 @@ export interface CreateWorkspaceInput {
 
 export interface CreateProjectInput {
   /**
-   * Optional explicit id. Used ONLY by the legacy import, which preserves ids
-   * when they are free. Normal callers omit it and let the store generate one.
+   * Optional explicit id. Used ONLY by the legacy import, which retains an id
+   * only when it is already a valid UUID and free — id columns are `uuid`, so a
+   * prefixed legacy id must be replaced. Normal callers omit it and let the
+   * store generate one.
    */
   id?: string
   workspaceId: string

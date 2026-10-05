@@ -20,8 +20,12 @@
  *      Anything else is rejected and reported, never silently dropped.
  *
  *   4. No identifier is taken from the client as authoritative. Legacy ids are
- *      treated as hints: preserved when free, remapped on collision, and every
- *      child reference rewritten accordingly.
+ *      treated as hints: one is retained only when it is ALREADY a valid UUID
+ *      and nothing occupies it, because id columns are `uuid` and PostgreSQL
+ *      rejects the prefixed strings the Phase 0 browser build minted. Anything
+ *      else is replaced with a fresh `randomUUID()`, every substitution is
+ *      reported in `remapped`, and every child reference is rewritten to the
+ *      authoritative parent id.
  *
  *   5. The whole import runs in one transaction. A failure leaves nothing behind.
  *
@@ -167,12 +171,14 @@ export class MigrateService {
           continue
         }
 
-        let id = legacy.id
-        const existing = await store.workspaces.findById(id)
-        if (existing) {
-          id = `wsp_${randomUUID()}`
-          remapped.push({ kind: 'workspace', legacyId: legacy.id, newId: id })
-        }
+        // Retained only when already a valid UUID and unoccupied. The Phase 0
+        // build minted prefixed ids that a `uuid` column rejects, so the
+        // availability probe must not run for them.
+        const id =
+          isUuid(legacy.id) &&
+          (await store.workspaces.findById(legacy.id)) === null
+            ? legacy.id
+            : remapId('workspace', legacy.id, remapped)
 
         await store.workspaces.insert({
           workspace: { id, name: legacy.name, ownerId: user.id },
@@ -197,11 +203,10 @@ export class MigrateService {
           continue
         }
 
-        let id = legacy.id
-        if (await store.projects.findById(id)) {
-          id = `prj_${randomUUID()}`
-          remapped.push({ kind: 'project', legacyId: legacy.id, newId: id })
-        }
+        const id =
+          isUuid(legacy.id) && (await store.projects.findById(legacy.id)) === null
+            ? legacy.id
+            : remapId('project', legacy.id, remapped)
 
         await store.projects.insert({
           id,
@@ -228,11 +233,10 @@ export class MigrateService {
           continue
         }
 
-        let id = legacy.id
-        if (await store.tasks.findById(id)) {
-          id = `tsk_${randomUUID()}`
-          remapped.push({ kind: 'task', legacyId: legacy.id, newId: id })
-        }
+        const id =
+          isUuid(legacy.id) && (await store.tasks.findById(legacy.id)) === null
+            ? legacy.id
+            : remapId('task', legacy.id, remapped)
 
         // The legacy store recorded an assignee by email. Only the importing
         // account can be resolved; any other assignee is reported rather than
@@ -309,6 +313,35 @@ export class MigrateService {
 
 function normalise(value: string): string {
   return value.trim().toLowerCase()
+}
+
+/**
+ * The canonical 8-4-4-4-12 hexadecimal form PostgreSQL accepts for a `uuid`
+ * column. Deliberately permissive about version and variant nibbles: the column
+ * type, not this predicate, is the authority on what is storable.
+ */
+const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function isUuid(value: string): boolean {
+  return UUID_TEXT.test(value)
+}
+
+/**
+ * Records a substitution and returns the authoritative id.
+ *
+ * Kept separate from the retention test below because that test must NOT probe
+ * the store with a non-UUID: `findById` validates its argument against the
+ * `uuid` column type and throws on `wsp_rb` before any query runs. Probing is
+ * therefore only safe once `isUuid` has already passed.
+ */
+function remapId(
+  kind: 'workspace' | 'project' | 'task',
+  legacyId: string,
+  remapped: MigrationReport['remapped'],
+): string {
+  const newId = randomUUID()
+  remapped.push({ kind, legacyId, newId })
+  return newId
 }
 
 function deriveDisplayName(email: string): string {

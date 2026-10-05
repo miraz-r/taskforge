@@ -116,7 +116,17 @@ export const createTaskBodySchema = z.object({
     .max(200, 'Task title must be 200 characters or fewer.'),
   description: z.string().max(20000).optional(),
   priority: taskPrioritySchema.optional(),
-  assigneeId: z.string().uuid().or(z.string().startsWith('usr_')).nullable().optional(),
+  /**
+   * Canonical UUID only. `Membership.userId` is a `uuid` column, so a prefixed
+   * identifier cannot be stored: it previously passed validation here, reached
+   * PostgreSQL, and surfaced as `invalid input syntax for type uuid` — a 500 on a
+   * malformed request instead of a 422.
+   *
+   * Rejecting it at the edge also means no membership lookup happens at all for a
+   * malformed value, so it cannot be used to probe for real user ids — the
+   * non-enumeration property the 403 path relies on is preserved a fortiori.
+   */
+  assigneeId: z.string().uuid().nullable().optional(),
   dueDate: z.iso.datetime().nullable().optional(),
 })
 
@@ -131,7 +141,8 @@ export const updateTaskBodySchema = z
     description: z.string().max(20000).optional(),
     stage: taskStageSchema.optional(),
     priority: taskPrioritySchema.optional(),
-    assigneeId: z.string().uuid().or(z.string().startsWith('usr_')).nullable().optional(),
+    /** See `createTaskBodySchema`. */
+    assigneeId: z.string().uuid().nullable().optional(),
     dueDate: z.iso.datetime().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
