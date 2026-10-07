@@ -35,8 +35,14 @@ const schema = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
 
   /**
-   * Origin the browser app is served from. Used for cookie `secure` and for
-   * rejecting cross-site state-changing requests.
+   * Origin the browser app is served from.
+   *
+   * Currently informational only: no Origin/Referer check is performed.
+   * Cross-site protection comes from the synchronizer-token CSRF check (see
+   * `middleware.ts` `requireCsrf`): every state-changing request must echo the
+   * session-bound token from `GET /api/auth/session` in `X-CSRF-Token`, and
+   * the session cookie is `HttpOnly; SameSite=Lax` (`Secure` when
+   * COOKIE_SECURE is true).
    */
   APP_ORIGIN: z.preprocess(
     emptyToUndefined,
@@ -78,16 +84,27 @@ export class ConfigError extends Error {
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = schema.safeParse(source)
-  if (parsed.success) return parsed.data
+  if (!parsed.success) {
+    // Report field names and reasons only. Values are never echoed, because a
+    // malformed value could be a credential (AGENTS.md 11.2, 11.5).
+    throw new ConfigError(
+      parsed.error.issues.map((issue) => {
+        const key = issue.path.join('.') || '(root)'
+        return `${key}: ${issue.message}`
+      }),
+    )
+  }
 
-  // Report field names and reasons only. Values are never echoed, because a
-  // malformed value could be a credential (AGENTS.md 11.2, 11.5).
-  throw new ConfigError(
-    parsed.error.issues.map((issue) => {
-      const key = issue.path.join('.') || '(root)'
-      return `${key}: ${issue.message}`
-    }),
-  )
+  // Fail fast on an insecure production deployment: a session cookie without
+  // the Secure flag is exposed on the wire. Development and test are
+  // unaffected so plain-http local work keeps working.
+  if (parsed.data.NODE_ENV === 'production' && parsed.data.COOKIE_SECURE === false) {
+    throw new ConfigError([
+      'COOKIE_SECURE: must be true in production (refusing to serve insecure session cookies)',
+    ])
+  }
+
+  return parsed.data
 }
 
 export const isProduction = (config: AppConfig): boolean =>

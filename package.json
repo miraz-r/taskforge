@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "audit": "npm audit --omit=dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:client": "vitest run --project client",

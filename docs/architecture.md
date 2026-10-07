@@ -440,6 +440,44 @@ than minting a fresh key.
 `server/__tests__/authRateLimit.test.ts` pins all of the above over real HTTP,
 including the two limitations, so the guarantee cannot be quietly overstated.
 
+### 12.4 Dependency audit
+
+Production dependencies are audited with `npm run audit`
+(`npm audit --omit=dev`), which reports known vulnerabilities in the
+dependencies that ship, excluding dev-only tooling.
+
+- **Manual step.** There is no CI pipeline and none is claimed: a human runs
+  the command, reads the report, and acts on it.
+- **When.** At each security workstream milestone, before any production
+  deployment, and whenever a production dependency is added or upgraded.
+- **On findings.** Assess the reported advisories against the project's actual
+  use; fix (upgrade or replace the dependency) or record the decision and its
+  reason. An unreviewed report is not a completed audit.
+
+### 12.5 Prisma audit decision (WS03) — keep 7.10.0
+
+`npm run audit` reports 4 high-severity findings, all inside the `prisma`
+CLI toolchain: `deepmerge-ts@7.1.5` (via `@prisma/config@7.10.0`) and
+`mysql2@3.15.3` (direct CLI dependency, exact pins — no patched release fits
+without an upstream Prisma release). Decision: **keep Prisma 7.10.0; do not
+downgrade to 6.x; do not run `npm audit fix --force`.**
+
+- **Why accepted as residual risk.** Both packages are CLI/config tooling,
+  never loaded by the serving runtime (`PrismaPg` + `pg` against PostgreSQL;
+  `@prisma/client`'s only runtime dependency is
+  `@prisma/client-runtime-utils`). `mysql2` executes solely on the CLI's MySQL
+  dialect branch, which a `provider = "postgresql"` project never takes; both
+  mysql2 advisories require live MySQL traffic that does not exist here.
+  `deepmerge-ts` merges only the committed local config, so its recursive-graph
+  exhaustion has no remote trigger.
+- **Why not 6.19.3.** A major downgrade would require moving `prisma`,
+  `@prisma/client`, and `@prisma/adapter-pg` together, removing the
+  Prisma-7-only `prisma.config.ts`, rewriting the schema datasource block, and
+  regenerating the client — certain breakage in exchange for an older major,
+  to silence findings that cannot reach the application.
+- **Reassessment.** Re-run the audit at each milestone and upgrade to a fixed
+  Prisma stable (7.x patch or 8.x final) when upstream ships one.
+
 
 ## 13. Known gaps and follow-up
 

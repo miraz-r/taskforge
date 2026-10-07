@@ -152,6 +152,18 @@ export function errorHandler(
     return
   }
 
+  // express.json({ limit }) raises this for bodies over the limit. It is a
+  // client error, not a server fault, and must not surface as a 500.
+  if (
+    err instanceof Error &&
+    (err as { type?: unknown }).type === 'entity.too.large'
+  ) {
+    res
+      .status(413)
+      .json({ error: { code: 'validation_failed', message: 'Request body is too large.' } })
+    return
+  }
+
   // Anything else is an internal fault. The detail goes to the server log; the
   // client gets an actionable, non-specific message (NFR-ERR-007).
   console.error('[taskforge] unhandled error:', err)

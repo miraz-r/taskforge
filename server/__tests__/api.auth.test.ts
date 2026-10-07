@@ -290,6 +290,19 @@ describe('error envelope', () => {
     })
     expect(response.status).toBe(400)
   })
+
+  it('rejects an oversized JSON body (>256 kB) as a client error, not a 500', async () => {
+    const response = await fetch(`${ctx.baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: 'big@example.com',
+        password: VALID_PASSWORD,
+        displayName: 'x'.repeat(300 * 1024),
+      }),
+    })
+    expect([400, 413]).toContain(response.status)
+  })
 })
 
 describe('security headers', () => {
@@ -298,6 +311,17 @@ describe('security headers', () => {
     expect(response.headers.get('x-content-type-options')).toBe('nosniff')
     expect(response.headers.get('x-powered-by')).toBeNull()
     expect(response.headers.get('content-security-policy')).toContain("default-src 'none'")
+  })
+
+  it('marks the session cookie Secure when COOKIE_SECURE is enabled', async () => {
+    const secureCtx = await startTestServer({ config: { COOKIE_SECURE: true } })
+    try {
+      const { status, response } = await secureCtx.client().post('/api/auth/register', NEW_USER)
+      expect(status).toBe(201)
+      expect(response.headers.getSetCookie().join(';')).toContain('Secure')
+    } finally {
+      await secureCtx.close()
+    }
   })
 })
 
