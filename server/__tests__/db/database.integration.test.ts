@@ -17,7 +17,9 @@
  *   - Unique constraints actually reject a concurrent duplicate registration
  *     (the `P2002` / `23505` path the service relies on).
  *   - `ON DELETE CASCADE` removes children (deleting a workspace removes its
- *     projects, tasks and comments).
+ *     projects, tasks and comments; deleting a user removes sessions,
+ *     memberships and notifications while tasks assigned to them are kept with
+ *     their assignee set to NULL).
  *   - Transaction rollback is real: a failure inside `store.transaction` leaves
  *     no partial rows, even though the migration service performs many writes.
  *   - Query-level workspace isolation: `listByMember` filters in SQL via the
@@ -36,7 +38,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { PrismaStore } from '../../repositories/prisma'
 import type { Store } from '../../repositories/store'
-import { AuthService } from '../../services/auth.service'
+import { AuthService, isUniqueViolation } from '../../services/auth.service'
 import { MigrateService } from '../../services/migrate.service'
 import { WorkspaceService } from '../../services/workspace.service'
 import { ProjectService } from '../../services/project.service'
@@ -265,6 +267,33 @@ describeDb('database layer', () => {
     ).rejects.toThrow()
   })
 
+  it('rejects a truly concurrent duplicate insert: exactly one wins', async () => {
+    // Sequential attempts cannot prove the race path: the service checks first,
+    // so only simultaneous inserts collide inside the database. Firing both
+    // without awaiting either is what makes the loser hit the constraint.
+    const attempt = () =>
+      store.users.insert({
+        email: 'race@example.com',
+        displayName: 'Racer',
+        passwordHash: 'irrelevant',
+      })
+    const [first, second] = await Promise.allSettled([attempt(), attempt()])
+
+    const winners = [first, second].filter((r) => r.status === 'fulfilled')
+    const losers = [first, second].filter((r) => r.status === 'rejected')
+    expect(winners).toHaveLength(1)
+    expect(losers).toHaveLength(1)
+
+    // The loser hit the unique constraint, not some other failure. This is the
+    // P2002/23505 path AuthService.register relies on when it loses the race.
+    const reason = (losers[0] as PromiseRejectedResult).reason
+    expect(isUniqueViolation(reason)).toBe(true)
+
+    // Exactly one row survived.
+    expect(await store.users.findByEmail('race@example.com')).not.toBeNull()
+    expect((await countRows(store)).user).toBe(1)
+  })
+
   it('persists and reads back every entity', async () => {
     const auth = new AuthService(store, 24)
     const workspaces = new WorkspaceService(store, 2)
@@ -305,6 +334,61 @@ describeDb('database layer', () => {
     expect(archived.archivedAt).toBeInstanceOf(Date)
   })
 
+  it('round-trips every NotificationKind and MembershipRole through PostgreSQL', async () => {
+    const auth = new AuthService(store, 24)
+    const workspaces = new WorkspaceService(store, 2)
+
+    const { user } = await auth.register({
+      email: 'enums@example.com',
+      password: 'a-good-password',
+      displayName: 'Enums',
+    })
+    const actor = { userId: user.id, email: user.email, sessionId: 'x' }
+    const workspace = await workspaces.create(actor, { name: 'Enum Team' })
+
+    // Every notification kind survives the write-read cycle, not just the ones
+    // the other tests happen to emit.
+    const kinds = [
+      'TASK_COMMENTED',
+      'TASK_ASSIGNED',
+      'TASK_STAGE_CHANGED',
+      'PROJECT_ARCHIVED',
+      'PROJECT_RESTORED',
+    ] as const
+    for (const kind of kinds) {
+      await store.notifications.insert({
+        userId: user.id,
+        projectId: null,
+        kind,
+        message: `kind:${kind}`,
+      })
+    }
+    const listed = await store.notifications.listForUser(user.id, 10)
+    expect(listed.map((n) => n.kind).sort()).toEqual([...kinds].sort())
+    expect(listed.every((n) => n.createdAt instanceof Date)).toBe(true)
+    expect(await store.notifications.countUnread(user.id)).toBe(kinds.length)
+
+    // Both membership roles persist. The OWNER row is written by workspace
+    // creation; MEMBER is inserted directly because invitations are Coming Soon
+    // (D-10) while the column still has to store the value correctly.
+    const other = await auth.register({
+      email: 'enums-member@example.com',
+      password: 'a-good-password',
+      displayName: 'Member',
+    })
+    await store.workspaces.memberships.insert({
+      userId: other.user.id,
+      workspaceId: workspace.id,
+      role: 'MEMBER',
+    })
+    expect(
+      (await store.workspaces.memberships.find(user.id, workspace.id))?.role,
+    ).toBe('OWNER')
+    expect(
+      (await store.workspaces.memberships.find(other.user.id, workspace.id))?.role,
+    ).toBe('MEMBER')
+  })
+
   it('scopes listByMember in SQL, not in memory', async () => {
     const auth = new AuthService(store, 24)
     const workspaces = new WorkspaceService(store, 2)
@@ -335,6 +419,68 @@ describeDb('database layer', () => {
       sessionId: 'x',
     })
     expect(bList.map((w) => w.name)).toEqual(['B Team'])
+  })
+
+  it('isolates Ada and Bob task and comment data through the PG-backed store', async () => {
+    const auth = new AuthService(store, 24)
+    const workspaces = new WorkspaceService(store, 2)
+    const notifications = new NotificationService(store)
+    const projects = new ProjectService(store, notifications)
+    const tasks = new TaskService(store, notifications)
+
+    const ada = await auth.register({
+      email: 'ada-iso@example.com',
+      password: 'a-good-password',
+      displayName: 'Ada',
+    })
+    const bob = await auth.register({
+      email: 'bob-iso@example.com',
+      password: 'a-good-password',
+      displayName: 'Bob',
+    })
+    const adaActor = { userId: ada.user.id, email: ada.user.email, sessionId: 'x' }
+    const bobActor = { userId: bob.user.id, email: bob.user.email, sessionId: 'x' }
+
+    const adaWorkspace = await workspaces.create(adaActor, { name: 'Ada Team' })
+    const adaProject = await projects.create(adaActor, adaWorkspace.id, {
+      name: 'Ada Project',
+    })
+    const adaTask = await tasks.create(adaActor, adaProject.id, { title: 'Ada Task' })
+    await tasks.addComment(adaActor, adaTask.id, 'Ada note.')
+
+    const bobWorkspace = await workspaces.create(bobActor, { name: 'Bob Team' })
+    const bobProject = await projects.create(bobActor, bobWorkspace.id, {
+      name: 'Bob Project',
+    })
+
+    // Bob is a stranger to Ada's workspace: reads and writes fail identically,
+    // revealing nothing about whether the rows exist.
+    await expect(tasks.list(bobActor, adaProject.id)).rejects.toThrow(
+      'You do not have access to that resource.',
+    )
+    await expect(
+      tasks.update(bobActor, adaTask.id, { title: 'Hijacked' }),
+    ).rejects.toThrow('You do not have access to that resource.')
+    await expect(
+      tasks.addComment(bobActor, adaTask.id, 'Snooping.'),
+    ).rejects.toThrow('You do not have access to that resource.')
+    await expect(tasks.listComments(bobActor, adaTask.id)).rejects.toThrow(
+      'You do not have access to that resource.',
+    )
+
+    // The refusal works both ways.
+    await expect(
+      tasks.create(adaActor, bobProject.id, { title: 'Intruder' }),
+    ).rejects.toThrow('You do not have access to that resource.')
+
+    // Nothing changed and nothing leaked.
+    const adaTasks = await tasks.list(adaActor, adaProject.id)
+    expect(adaTasks).toHaveLength(1)
+    expect(adaTasks[0]?.title).toBe('Ada Task')
+    expect(await tasks.listComments(adaActor, adaTask.id)).toHaveLength(1)
+    expect((await workspaces.list(bobActor)).map((w) => w.name)).toEqual([
+      'Bob Team',
+    ])
   })
 
   it('cascades deletes from workspace to tasks and comments', async () => {
@@ -375,6 +521,90 @@ describeDb('database layer', () => {
     expect(await store.projects.findById(project.id)).toBeNull()
     expect(await store.tasks.findById(task.id)).toBeNull()
     expect(await store.comments.listByTask(task.id)).toEqual([])
+  })
+
+  it('cascades a user delete to sessions, memberships and notifications, and nulls assignees', async () => {
+    const auth = new AuthService(store, 24)
+    const workspaces = new WorkspaceService(store, 2)
+    const notifications = new NotificationService(store)
+    const projects = new ProjectService(store, notifications)
+    const tasks = new TaskService(store, notifications)
+
+    // Ada owns the workspace so the chain survives Bob. Bob is the member whose
+    // deletion is under test.
+    const ada = await auth.register({
+      email: 'owner-cascade@example.com',
+      password: 'a-good-password',
+      displayName: 'Ada',
+    })
+    const adaActor = { userId: ada.user.id, email: ada.user.email, sessionId: 'x' }
+    const workspace = await workspaces.create(adaActor, { name: 'Ada Team' })
+    const project = await projects.create(adaActor, workspace.id, { name: 'P' })
+    const task = await tasks.create(adaActor, project.id, { title: 'T' })
+
+    const bob = await auth.register({
+      email: 'member-cascade@example.com',
+      password: 'a-good-password',
+      displayName: 'Bob',
+    })
+    const bobActor = { userId: bob.user.id, email: bob.user.email, sessionId: 'x' }
+
+    // Bob joins as MEMBER through the store directly: invitations are Coming
+    // Soon (D-10), so no service path can add him, but the row is what the
+    // foreign key constrains.
+    await store.workspaces.memberships.insert({
+      userId: bob.user.id,
+      workspaceId: workspace.id,
+      role: 'MEMBER',
+    })
+    await tasks.update(adaActor, task.id, { assigneeId: bob.user.id })
+    expect((await store.tasks.findById(task.id))?.assigneeId).toBe(bob.user.id)
+
+    // One notification from the assignment above, plus one explicit.
+    await store.notifications.insert({
+      userId: bob.user.id,
+      projectId: project.id,
+      kind: 'TASK_COMMENTED',
+      message: 'Someone commented.',
+    })
+    await tasks.addComment(bobActor, task.id, 'Bob was here.')
+    await tasks.addComment(adaActor, task.id, 'Ada was here.')
+
+    // Two users, two sessions, two memberships, two comments.
+    const before = await countRows(store)
+    expect(before.user).toBe(2)
+    expect(before.session).toBe(2)
+    expect(before.membership).toBe(2)
+    expect(before.comment).toBe(2)
+
+    // Delete Bob through a raw delete. The Store interface deliberately exposes
+    // no delete (FR-PRJ-012); reached via `store.prisma` like `cleanAll` and the
+    // workspace-cascade test above.
+    const client = (
+      store as unknown as {
+        prisma: { user: { delete: (a: unknown) => Promise<unknown> } }
+      }
+    ).prisma
+    await client.user.delete({ where: { id: bob.user.id } })
+
+    expect(await store.users.findById(bob.user.id)).toBeNull()
+    // Sessions, memberships and notifications follow the user.
+    expect((await countRows(store)).session).toBe(1)
+    expect(
+      await store.workspaces.memberships.find(bob.user.id, workspace.id),
+    ).toBeNull()
+    expect(
+      await store.workspaces.memberships.find(ada.user.id, workspace.id),
+    ).not.toBeNull()
+    expect(await notifications.list(bob.user.id, 10)).toEqual([])
+    // The task survives with its assignee cleared, not deleted: the assignee
+    // foreign key is ON DELETE SET NULL.
+    const surviving = await store.tasks.findById(task.id)
+    expect(surviving).not.toBeNull()
+    expect(surviving?.assigneeId).toBeNull()
+    // Bob's comment went with him (author cascade); Ada's remains.
+    const comments = await store.comments.listByTask(task.id)
+    expect(comments.map((c) => c.body)).toEqual(['Ada was here.'])
   })
 
   it('rolls back a multi-write migration atomically', async () => {

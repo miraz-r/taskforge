@@ -193,6 +193,19 @@ rows cascade from `User`.
   (`FR-PRJ-012`), so no soft-delete column and no deletion route exist. There is
   nothing to enable later without a migration.
 
+### 6.2 Concurrent updates resolve last-writer-wins
+
+Concurrent updates to the same task or project resolve **last-writer-wins** at
+the PostgreSQL row level: each update is a single atomic `UPDATE`, but nothing
+coordinates two updates to the same row, so the later commit silently
+overwrites the earlier one. There is no version column, no conflict detection,
+and no conflict surfaced to either client. This is acceptable for the initial
+milestone — workspaces are single-user-dominated (invitations deferred,
+**D-10**) and no requirement mandates conflict handling. **Revisit this
+decision when the `FR-RT` feature family leaves Coming Soon**, at which point
+`FR-RT-002` will require real conflict resolution and last-writer-wins will no
+longer satisfy it.
+
 ## 7. Authentication
 
 1. `POST /api/auth/register` — validate, hash with argon2id, create user, issue

@@ -50,7 +50,7 @@ architecture decisions, and vice versa.
 | `docs/design-system.md` | **ACTIVE** | Design tokens, component specifications, interaction, motion, accessibility, and iconography. **Specified, not implemented** — see note below |
 | `docs/api.md` | **ACTIVE** | Endpoint contracts, request and response schemas, error formats, and the deliberate absence of routes |
 | `docs/testing.md` | PLANNED | Test strategy, required checks, CI expectations |
-| `docs/operations.md` | PLANNED | Deployment, observability, runbooks |
+| `docs/operations.md` | **ACTIVE** | Deployment support, backup/restore runbook, schema-change policy |
 
 Actual repository layout (siblings are siblings — none is nested under another):
 

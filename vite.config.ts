@@ -8,8 +8,8 @@ import tailwindcss from '@tailwindcss/vite'
  *  - `client`  jsdom, for the React application.
  *  - `server`  node, for the API. Runs against the in-memory store, so the whole
  *              suite executes with NO PostgreSQL instance. Tests that genuinely
- *              need a database live in server/__tests__/db and are skipped
- *              unless DATABASE_URL is set — never silently passed.
+ *              need a database live in server/__tests__/db and run only when
+ *              RUN_DB_TESTS=true (see `npm run test:db`) — never silently passed.
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
