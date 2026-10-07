@@ -270,14 +270,13 @@ the authoritative registry in `AGENTS.md` §2.1. A **PLANNED** document does not
 not be cited as an authority; an **ACTIVE** document may be cited for its own topic.
 
 An **ACTIVE** status means the document exists and is authoritative for its topic. It does **not**
-mean the behaviour it describes has been built. `docs/design-system.md` is **ACTIVE and specified
-but not implemented**: its design-system specifications are documented, while application
-implementation and runtime behaviour have **not** been verified.
+by itself state what is implemented: for the design system, implementation status is tracked
+per check in `docs/design-system.md` §13.
 
 | Area | Document | Expected content | Status |
 |---|---|---|---|
 | Product requirements | `docs/01_PRODUCT_REQUIREMENTS.md` | Features, scope, acceptance criteria, delivery-state assignment | **ACTIVE** |
-| Design system | `docs/design-system.md` | Tokens, components, interaction and accessibility patterns | **ACTIVE** — specified, not implemented |
+| Design system | `docs/design-system.md` | Tokens, components, interaction and accessibility patterns | **ACTIVE** |
 | Architecture | `docs/architecture.md` | System structure, module boundaries, data flow, trust boundaries | **ACTIVE** |
 | Technical implementation | `docs/api.md` | Endpoint contracts, request/response schemas, error formats | **ACTIVE** |
 | Testing | `docs/testing.md` | Test strategy, required checks, CI expectations | PLANNED — does not exist |

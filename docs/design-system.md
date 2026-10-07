@@ -8,9 +8,12 @@
 > **Requirements authority:** `docs/01_PRODUCT_REQUIREMENTS.md` — features, delivery states, and
 > acceptance criteria. This document must not contradict either.
 
-**Nothing in this document is implemented.** No application code exists. Every value here is a
-specification to be implemented and then verified, not a description of something that exists
-(`AGENTS.md` §7.1).
+The specifications here are substantially implemented in `src/` — tokens in
+`src/index.css`, primitives and workspace views in `src/components/` and
+`src/views/`. What counts as satisfied is tracked per check in §13: several
+checks are verified, some are Blocked on open decisions, and some remain open.
+A value is never reported as satisfied without the verification `AGENTS.md`
+§7.1 requires.
 
 ### How to read this document
 

@@ -47,7 +47,7 @@ architecture decisions, and vice versa.
 | `README.md` | PLANNED | Orientation, setup, and entry points |
 | `CONTRIBUTING.md` | PLANNED | Human contribution, PR, and review process |
 | `docs/architecture.md` | **ACTIVE** | System structure, module boundaries, data flow, technology decisions, trust boundaries, local development |
-| `docs/design-system.md` | **ACTIVE** | Design tokens, component specifications, interaction, motion, accessibility, and iconography. **Specified, not implemented** — see note below |
+| `docs/design-system.md` | **ACTIVE** | Design tokens, component specifications, interaction, motion, accessibility, and iconography |
 | `docs/api.md` | **ACTIVE** | Endpoint contracts, request and response schemas, error formats, and the deliberate absence of routes |
 | `docs/testing.md` | PLANNED | Test strategy, required checks, CI expectations |
 | `docs/operations.md` | **ACTIVE** | Deployment support, backup/restore runbook, schema-change policy |
@@ -61,7 +61,7 @@ taskforge/
 │   ├── 00_PROJECT_OVERVIEW.md  (ACTIVE)
 │   ├── 01_PRODUCT_REQUIREMENTS.md  (ACTIVE)
 │   ├── architecture.md      (ACTIVE)
-│   ├── design-system.md     (ACTIVE — specified, not implemented)
+│   ├── design-system.md     (ACTIVE)
 │   ├── api.md               (ACTIVE)
 │   ├── testing.md           (PLANNED — does not exist yet)
 │   └── operations.md        (PLANNED — does not exist yet)
@@ -75,10 +75,8 @@ taskforge/
 
 - **ACTIVE** — the document exists and is a valid rule source.
 - **Specified, not implemented** — the document exists and is authoritative for its topic, but the
-  behaviour it describes has **not** been built. `docs/design-system.md` is in this state: its
-  specifications are documented, but application implementation and runtime behaviour have **not**
-  been verified. ACTIVE status means the document may be cited as a rule source; it never means
-  the described behaviour exists in an application.
+  behaviour it describes has **not** been built. ACTIVE status means the document may be cited
+  as a rule source; it never means the described behaviour exists in an application.
 - **PLANNED** — the document does not exist yet. A PLANNED document **must never be cited**
   as a rule source, quoted, or used to justify a decision. Its intended purpose is recorded
   here only so the registry stays complete.
