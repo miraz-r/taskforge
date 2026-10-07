@@ -484,7 +484,7 @@ downgrade to 6.x; do not run `npm audit fix --force`.**
 | Item | State | Follow-up |
 |---|---|---|
 | Database integration suite | **Written, never run** | Needs PostgreSQL |
-| WCAG 2.2 AA contrast | **Measured failures** on the approved palette | Separate, explicitly scoped task; tokens untouched |
+| WCAG 2.2 AA contrast (text) | **Re-measured passing** after WS04 token adjustments: muted text, focus ring, and primary-button label/fills now meet 4.5:1 (text) / 3:1 (non-text) in both themes, verified by computation against the token values | D-18 conformance-level claim still open; dark-theme shadow validation still pending |
 | Frontend for projects/tasks/comments/search/dashboard | **Built** and browser-verified against the live API | — |
 | `FR-AUTH-008` display-name editing | **Built** and browser-verified | — |
 | `FR-AUTH-008` avatar | **Deferred.** No schema column, no upload transport, `design-system` 10.4 is Proposed. Initials-only avatar renders; the profile view states this honestly rather than offering a control that cannot work | Needs a storage and presentation decision before it can be built |

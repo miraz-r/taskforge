@@ -5,6 +5,10 @@
  * presentation only — never layout, data, or available actions (FR-THEME-006,
  * AC-THEME-03) — and the selection persists across a reload (FR-THEME-004).
  *
+ * The control is generic over its options, so the same segmented control also
+ * serves the workspace view and density switches (NFR-VIS-003: extend before
+ * creating). Those pass their own group label; the theme label is the default.
+ *
  * The active option is conveyed by `aria-pressed`, a fill change AND a left
  * indicator, so it is never carried by colour alone (NFR-ACCESS-008).
  *
@@ -12,23 +16,27 @@
  * the decision eventually takes, so it does not pre-empt it.
  */
 
+import type { ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
 export interface ThemeOption<T extends string> {
   value: T
   label: string
-  icon: React.ReactNode
+  icon?: ReactNode | undefined
 }
 export function ThemeControl<T extends string>({
   value,
   options,
   onChange,
   id,
+  label = 'Colour theme',
 }: {
   value: T
   options: ReadonlyArray<ThemeOption<T>>
   onChange: (next: T) => void
   id: string
+  /** Screen-reader group label. Defaults to the theme control's own label. */
+  label?: string
 }) {
   return (
     <div
@@ -37,7 +45,7 @@ export function ThemeControl<T extends string>({
       className="inline-flex items-center gap-2 rounded-md bg-bg-muted p-0.5"
     >
       <span id={`${id}-label`} className="sr-only">
-        Colour theme
+        {label}
       </span>
       {options.map((option) => {
         const active = option.value === value
@@ -64,7 +72,7 @@ export function ThemeControl<T extends string>({
                 active ? 'bg-brand-600' : 'bg-transparent',
               )}
             />
-            {option.icon}
+            {option.icon ?? null}
             <span>{option.label}</span>
           </button>
         )

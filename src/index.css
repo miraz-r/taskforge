@@ -31,6 +31,9 @@
   :root {
     /* Brand — the primary cyan (2.1) */
     --tf-color-brand-600: #16a6b5;
+    /* Hover/pressed step for graphite labels (white on 600 fails contrast).
+       Same hue, deepened until a dark label passes 4.5:1. */
+    --tf-color-brand-650: #1595a2;
     --tf-color-brand-700: #128795;
     --tf-color-brand-800: #0e6a75;
     --tf-color-brand-100: #dff4f6;
@@ -51,9 +54,14 @@
     /* Text — graphite; pure black is never used (2.3) */
     --tf-color-text-primary: #1f2429;
     --tf-color-text-secondary: #525c63;
-    --tf-color-text-muted: #7a848c;
+    /* Darkened from #7a848c so metadata meets 4.5:1 on surface and subtle. */
+    --tf-color-text-muted: #5f6a72;
     --tf-color-text-inverse: #ffffff;
     --tf-color-text-brand: #0e6a75;
+    /* Label on primary brand fills. White fails contrast on brand.600, so the
+       light theme uses a near-graphite instead (dark already pairs dark text
+       with its brightened fills). */
+    --tf-color-text-on-brand: #161b20;
     --tf-color-text-danger: #b3261e;
     --tf-color-text-success: #1e6b3a;
     --tf-color-text-warning: #8a5a00;
@@ -63,7 +71,8 @@
     --tf-color-border-subtle: #edf0f2;
     --tf-color-border-default: #dfe4e7;
     --tf-color-border-strong: #c3cbd1;
-    --tf-color-border-focus: #16a6b5;
+    /* Deepened from brand.600 so the focus ring meets 3:1 on surfaces. */
+    --tf-color-border-focus: #0e6a75;
     --tf-color-border-danger: #f3c6c3;
 
     /* Status (2.5) — never the sole carrier of meaning (8.5) */
@@ -100,6 +109,9 @@
      ---------------------------------------------------------------------- */
   [data-theme='dark'] {
     --tf-color-brand-600: #2bc4d4;
+    /* Equals dark brand.700: the dark hover fill is unchanged, and the dark
+       pressed fill moves here so graphite labels keep contrast while pressed. */
+    --tf-color-brand-650: #1fa3b2;
     --tf-color-brand-700: #1fa3b2;
     --tf-color-brand-800: #17838f;
     --tf-color-brand-100: #0d3b42;
@@ -117,9 +129,12 @@
 
     --tf-color-text-primary: #edeff1;
     --tf-color-text-secondary: #a8b0b7;
-    --tf-color-text-muted: #79838b;
+    /* Lightened so metadata meets 4.5:1 on surface and subtle. */
+    --tf-color-text-muted: #8b949c;
     --tf-color-text-inverse: #141618;
     --tf-color-text-brand: #2bc4d4;
+    /* Unchanged value: dark primary buttons already pair this with bright fills. */
+    --tf-color-text-on-brand: #141618;
     --tf-color-text-danger: #f2857c;
     --tf-color-text-success: #5cc98a;
     --tf-color-text-warning: #e0b158;
@@ -166,6 +181,7 @@
 @theme inline {
   /* Colour */
   --color-brand-600: var(--tf-color-brand-600);
+  --color-brand-650: var(--tf-color-brand-650);
   --color-brand-700: var(--tf-color-brand-700);
   --color-brand-800: var(--tf-color-brand-800);
   --color-brand-100: var(--tf-color-brand-100);
@@ -186,6 +202,7 @@
   --color-text-muted: var(--tf-color-text-muted);
   --color-text-inverse: var(--tf-color-text-inverse);
   --color-text-brand: var(--tf-color-text-brand);
+  --color-text-on-brand: var(--tf-color-text-on-brand);
   --color-text-danger: var(--tf-color-text-danger);
   --color-text-success: var(--tf-color-text-success);
   --color-text-warning: var(--tf-color-text-warning);
@@ -432,10 +449,23 @@
   }
 
   /* Controls sitting on a brand or danger fill would otherwise carry a cyan
-     ring on cyan, which is not distinguishable. These carry the two-layer
-     focus token instead (8.10). */
+     ring on cyan, which is not distinguishable. They carry a two-layer ring
+     instead (8.10): a high-contrast inner ring plus the focus colour outside.
+     The inner ring differs because the fills differ — graphite passes on the
+     light brand fill while surface passes on danger fills and in dark theme. */
+  .tf-on-danger:focus-visible {
+    outline-color: var(--tf-color-border-focus);
+    box-shadow: var(--tf-shadow-focus);
+  }
+
   .tf-on-brand:focus-visible {
     outline-color: var(--tf-color-border-focus);
+    box-shadow:
+      0 0 0 2px var(--tf-color-text-primary),
+      0 0 0 4px var(--tf-shadow-focus-ring);
+  }
+
+  [data-theme='dark'] .tf-on-brand:focus-visible {
     box-shadow: var(--tf-shadow-focus);
   }
 }

@@ -113,6 +113,7 @@ tokens, never raw hex (§11).
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `color.brand.600` | `#16A6B5` | `#2BC4D4` | **Primary cyan.** Primary actions, active nav, focus |
+| `color.brand.650` | `#1595A2` | `#1FA3B2` | Primary hover/pressed step. Dark value equals dark `700`, so dark hover rendering is unchanged |
 | `color.brand.700` | `#128795` | `#1FA3B2` | Primary hover |
 | `color.brand.800` | `#0E6A75` | `#17838F` | Primary pressed |
 | `color.brand.100` | `#DFF4F6` | `#0D3B42` | Primary subtle background, selection |
@@ -144,9 +145,10 @@ More steps would read as noise.
 |---|---|---|---|
 | `color.text.primary` | `#1F2429` | `#EDEFF1` | **Graphite.** Headings, body, primary content |
 | `color.text.secondary` | `#525C63` | `#A8B0B7` | Supporting text, descriptions |
-| `color.text.muted` | `#7A848C` | `#79838B` | **Muted.** Metadata, placeholders, captions |
+| `color.text.muted` | `#5F6A72` | `#8B949C` | **Muted.** Metadata, placeholders, captions |
 | `color.text.inverse` | `#FFFFFF` | `#141618` | Text on solid brand or inverse fills |
 | `color.text.brand` | `#0E6A75` | `#2BC4D4` | Links, active states |
+| `color.text.onBrand` | `#161B20` | `#141618` | Text on primary brand fills |
 | `color.text.danger` | `#B3261E` | `#F2857C` | Destructive text, validation errors |
 | `color.text.success` | `#1E6B3A` | `#5CC98A` | Success text |
 | `color.text.warning` | `#8A5A00` | `#E0B158` | Warning text |
@@ -161,7 +163,7 @@ More steps would read as noise.
 | `color.border.subtle` | `#EDF0F2` | `#262A2E` | Dividers inside a surface |
 | `color.border.default` | `#DFE4E7` | `#31373C` | Card and input borders |
 | `color.border.strong` | `#C3CBD1` | `#3D444A` | Hover borders, high-emphasis outlines |
-| `color.border.focus` | `#16A6B5` | `#2BC4D4` | Focus ring |
+| `color.border.focus` | `#0E6A75` | `#2BC4D4` | Focus ring |
 | `color.border.danger` | `#F3C6C3` | `#5A2E2B` | Destructive input borders |
 
 Borders, not shadows, define most boundaries (§4.6). Shadows are reserved for genuinely
@@ -198,7 +200,7 @@ is used as a large fill.
 | State | Treatment |
 |---|---|
 | **Hover (surface)** | `color.bg.subtle` fill, or `color.border.strong` border for outlined controls |
-| **Active/pressed** | `color.bg.muted` fill, or `color.brand.800` for primary |
+| **Active/pressed** | `color.bg.muted` fill, or `color.brand.650` for primary with a press scale |
 | **Focus-visible** | 2px `color.border.focus` ring at 2px offset; **never removed** |
 | **Selected** | `color.brand.100` fill with `color.brand.600` left indicator |
 | **Disabled** | `color.bg.muted` fill, `color.text.muted` label, `cursor: not-allowed`, removed from tab order |
@@ -461,7 +463,7 @@ design for a deferred feature.
 | **Default** | 36px | 16px | `type.label` |
 | Large | 44px | 20px | `type.body` |
 
-**States.** Default · hover (`brand.700` / `bg.subtle`) · active (`brand.800` / `bg.muted`) ·
+**States.** Default · hover (`brand.650` / `bg.subtle`) · active (`brand.650` with press scale / `bg.muted`) ·
 focus-visible (ring, §2.6) · disabled (`bg.muted` fill, `text.muted`, not focusable) · loading
 (spinner replaces label, **width preserved**).
 
@@ -1043,7 +1045,7 @@ legible.
 |---|---|
 | **Hover** | 100ms `ease.standard` on colour, border, `opacity` |
 | **Focus** | Ring appears immediately — **no transition**, so focus is never delayed |
-| **Press** | 100ms scale to 0.98 for primary; no transform on ghost |
+| **Press** | Instant scale to 0.98 for primary (transform-only, no transition); no transform on ghost |
 | **Dialog enter** | 200ms `ease.enter`; `opacity` 0→1 with `translateY(8px)`→0 |
 | **Dialog exit** | 150ms `ease.exit`; `opacity`→0 |
 | **Dropdown** | 150ms `ease.enter`; `opacity` + `translateY(−4px)` |
@@ -1146,10 +1148,10 @@ equivalent theme object; the naming scheme is stable regardless of implementatio
 
 | Group | Count | Tokens |
 |---|---|---|
-| Brand | 5 | `600`, `700`, `800`, `100`, `200` |
+| Brand | 6 | `600`, `650`, `700`, `800`, `100`, `200` |
 | Accent | 2 | `500`, `600` |
 | Background | 6 | `canvas`, `surface`, `subtle`, `muted`, `overlay`, `inverse` |
-| Text | 9 | `primary`, `secondary`, `muted`, `inverse`, `brand`, `danger`, `success`, `warning`, `onAccent` |
+| Text | 10 | `primary`, `secondary`, `muted`, `inverse`, `brand`, `onBrand`, `danger`, `success`, `warning`, `onAccent` |
 | Border | 5 | `subtle`, `default`, `strong`, `focus`, `danger` |
 | Status | 15 | `success`, `warning`, `danger`, `info`, `neutral` × `bg`/`border`/`text` (neutral: `bg`/`text`) |
 

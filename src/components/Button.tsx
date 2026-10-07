@@ -5,6 +5,13 @@
  * shift. Disabled controls are never silently inert: they must state why.
  * Keyboard: Enter and Space activate, Tab reaches it, disabled buttons are
  * skipped by the browser.
+ *
+ * Contrast (8.10): the primary label is graphite, not white — white on
+ * brand.600 fails contrast, while graphite passes in both themes, matching
+ * the dark theme's existing dark-on-bright pairing. Hover and pressed share
+ * the deepened brand.650 step; the press is marked by an instant scale
+ * (transform-only, so it is safe under reduced motion) rather than a further
+ * fill change.
  */
 
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
@@ -30,7 +37,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-600 text-text-inverse hover:bg-brand-700 active:bg-brand-800',
+    'bg-brand-600 text-text-on-brand hover:bg-brand-650 active:bg-brand-650 active:scale-[0.98]',
   secondary:
     'bg-transparent text-text-primary border border-border-default hover:border-border-strong',
   ghost: 'bg-transparent text-text-secondary hover:bg-bg-subtle',
@@ -65,10 +72,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           'transition-colors duration-100 ease-standard',
           'disabled:cursor-not-allowed',
           variant === 'link' ? 'underline-offset-4' : SIZE_CLASSES[size],
-          // A ring on a brand fill would be cyan on cyan (8.10).
-          variant === 'primary' || variant === 'danger'
+          // A cyan ring on a brand fill would be invisible (8.10): brand fills
+          // take the graphite-inner ring, danger fills the surface-inner ring.
+          variant === 'primary'
             ? 'tf-on-brand'
-            : '',
+            : variant === 'danger'
+              ? 'tf-on-danger'
+              : '',
           VARIANT_CLASSES[variant],
           isDisabled && 'disabled:bg-bg-muted disabled:text-text-muted',
           isDisabled &&

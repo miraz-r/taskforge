@@ -21,6 +21,7 @@ import { ErrorState, FormError } from '../components/ErrorState'
 import { Select } from '../components/Select'
 import { Skeleton } from '../components/Skeleton'
 import { TextField } from '../components/TextField'
+import { ThemeControl, type ThemeOption } from '../components/ThemeControl'
 import { SearchIcon } from '../components/icons'
 import { AppShell } from '../components/AppShell'
 import { StageDistribution } from '../components/StageDistribution'
@@ -29,6 +30,12 @@ import { useApp } from '../app/AppContext'
 import { getService } from '../access/service'
 import { useNavTarget } from '../app/useNavTarget'
 import { paths } from '../routing/useHashRoute'
+import {
+  readStoredDensity,
+  writeStoredDensity,
+  type Density,
+} from '../density/storage'
+import { cn } from '../lib/cn'
 import type {
   BackendTask,
   BackendUser,
@@ -49,6 +56,36 @@ const PRIORITIES = [
   { value: 'LOW', label: 'Low' },
   { value: 'NONE', label: 'No priority' },
 ] as const
+
+type ProjectWorkspaceView = 'board' | 'list'
+
+const VIEW_OPTIONS: ReadonlyArray<ThemeOption<ProjectWorkspaceView>> = [
+  { value: 'board', label: 'Board' },
+  { value: 'list', label: 'List' },
+]
+
+const DENSITY_OPTIONS: ReadonlyArray<ThemeOption<Density>> = [
+  { value: 'comfortable', label: 'Comfortable' },
+  { value: 'compact', label: 'Compact' },
+]
+
+/** Assignee display. Only the signed-in user is identifiable; anything else
+ *  assigned to someone is stated as such without inventing a name. */
+function assigneeLabel(
+  task: BackendTask,
+  user: BackendUser | null,
+): string {
+  if (!task.assigneeId) return 'Unassigned'
+  if (user && task.assigneeId === user.id)
+    return `${user.displayName} (you)`
+  return 'Assigned'
+}
+
+/** Overdue on the calendar date, matching the drawer's end-of-day reading. */
+function isOverdue(dueDate: string | null): boolean {
+  if (!dueDate) return false
+  return dueDate.slice(0, 10) < new Date().toISOString().slice(0, 10)
+}
 
 type LoadState =
   | { status: 'loading' }
@@ -84,6 +121,14 @@ export function ProjectView({
   const [searching, setSearching] = useState(false)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<BackendTask['stage'] | null>(null)
+  // Board is the default: it is the existing behaviour and stays put.
+  const [view, setView] = useState<ProjectWorkspaceView>('board')
+  const [density, setDensityState] = useState<Density>(readStoredDensity)
+
+  function setDensity(next: Density) {
+    setDensityState(next)
+    writeStoredDensity(next)
+  }
 
   // The control that opened the drawer, so focus can return to it on close
   // (FR-DRAWER-007). Captured at open time: by close time the active element
@@ -246,11 +291,31 @@ export function ProjectView({
               {state.status === 'ready' ? state.summary.projectName : 'Project'}
             </h1>
           </div>
-          {state.status === 'ready' && !creating && !state.summary.isEmpty ? (
-            <Button variant="primary" onClick={openCreate}>
-              Create task
-            </Button>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {state.status === 'ready' && !state.summary.isEmpty ? (
+              <>
+                <ThemeControl
+                  id="tf-workspace-view"
+                  label="Project view"
+                  value={view}
+                  options={VIEW_OPTIONS}
+                  onChange={setView}
+                />
+                <ThemeControl
+                  id="tf-workspace-density"
+                  label="Task density"
+                  value={density}
+                  options={DENSITY_OPTIONS}
+                  onChange={setDensity}
+                />
+              </>
+            ) : null}
+            {state.status === 'ready' && !creating && !state.summary.isEmpty ? (
+              <Button variant="primary" onClick={openCreate}>
+                Create task
+              </Button>
+            ) : null}
+          </div>
         </header>
 
         {error ? (
@@ -370,26 +435,48 @@ export function ProjectView({
                 }
               />
             ) : (
-              <ul className="flex flex-col gap-3">
-                {hits.map((hit) => (
-                  <li key={hit.task.id}>
-                    <TaskRow
-                      task={hit.task}
-                      matchedIn={hit.matchedIn}
-                      onOpen={() => openTaskDrawer(hit.task.id)}
-                      onMoveStage={(stage) => void onMoveStage(hit.task.id, stage)}
-                      onSetPriority={(priority) =>
-                        void onSetPriority(hit.task.id, priority)
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
+              view === 'board' ? (
+                <ul
+                  className={cn(
+                    'flex flex-col',
+                    density === 'compact' ? 'gap-2' : 'gap-3',
+                  )}
+                >
+                  {hits.map((hit) => (
+                    <li key={hit.task.id}>
+                      <TaskRow
+                        task={hit.task}
+                        matchedIn={hit.matchedIn}
+                        density={density}
+                        onOpen={() => openTaskDrawer(hit.task.id)}
+                        onMoveStage={(stage) =>
+                          void onMoveStage(hit.task.id, stage)
+                        }
+                        onSetPriority={(priority) =>
+                          void onSetPriority(hit.task.id, priority)
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <TaskList
+                  items={hits.map((hit) => ({
+                    task: hit.task,
+                    matchedIn: hit.matchedIn,
+                  }))}
+                  user={user}
+                  density={density}
+                  onOpen={openTaskDrawer}
+                  onMoveStage={onMoveStage}
+                />
+              )
             )
-          ) : (
+          ) : view === 'board' ? (
             <Board
               byStage={state.summary.byStage}
               tasks={state.tasks}
+              density={density}
               // A stage chosen from a progress indicator filters the board to
               // that column (AC-DASH-05) rather than scrolling to it, so the
               // route stays the single source of truth.
@@ -397,6 +484,17 @@ export function ProjectView({
               onOpen={openTaskDrawer}
               onMoveStage={onMoveStage}
               onSetPriority={onSetPriority}
+            />
+          ) : (
+            <TaskList
+              items={(stageFilter
+                ? state.tasks.filter((task) => task.stage === stageFilter)
+                : state.tasks
+              ).map((task) => ({ task }))}
+              user={user}
+              density={density}
+              onOpen={openTaskDrawer}
+              onMoveStage={onMoveStage}
             />
           )}
         </div>
@@ -432,6 +530,7 @@ export function ProjectView({
 function Board({
   byStage,
   tasks,
+  density,
   highlightStage,
   onOpen,
   onMoveStage,
@@ -439,11 +538,23 @@ function Board({
 }: {
   byStage: Array<{ stage: BackendTask['stage']; label: string; count: number }>
   tasks: BackendTask[]
+  density: Density
   highlightStage: BackendTask['stage'] | null
   onOpen: (taskId: string) => void
   onMoveStage: (taskId: string, stage: BackendTask['stage']) => void
   onSetPriority: (taskId: string, priority: BackendTask['priority']) => void
 }) {
+  // Column under the pointer during a drag. Cleared on drop and whenever any
+  // drag ends, so a cancelled drag never leaves a stale highlight.
+  const [dropStage, setDropStage] = useState<BackendTask['stage'] | null>(null)
+
+  useEffect(() => {
+    function clear() {
+      setDropStage(null)
+    }
+    document.addEventListener('dragend', clear)
+    return () => document.removeEventListener('dragend', clear)
+  }, [])
   // When a stage is chosen from the progress indicator, the other columns are
   // marked dimmed rather than removed — hiding a column would misrepresent the
   // board (FR-KAN-005).
@@ -454,14 +565,52 @@ function Board({
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div
+        className={cn(
+          'flex overflow-x-auto pb-4',
+          density === 'compact' ? 'gap-2' : 'gap-4',
+        )}
+      >
         {visibleStages.map((column) => {
           const columnTasks = tasks.filter((task) => task.stage === column.stage)
+          const isDropTarget = dropStage === column.stage
           return (
             <section
               key={column.stage}
               aria-labelledby={`column-${column.stage}`}
-              className="flex w-72 shrink-0 flex-col"
+              onDragOver={(event) => {
+                // Required: without it the drop event never fires.
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropStage(column.stage)
+              }}
+              onDragLeave={(event) => {
+                // dragleave also fires moving between children; only a true
+                // exit clears the highlight.
+                if (
+                  event.currentTarget.contains(
+                    event.relatedTarget as Node | null,
+                  )
+                )
+                  return
+                setDropStage((current) =>
+                  current === column.stage ? null : current,
+                )
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                setDropStage(null)
+                const taskId = event.dataTransfer.getData('text/plain')
+                const moved = tasks.find((task) => task.id === taskId)
+                // A drop in the task's own column changes nothing and must not
+                // write: the move is a real API update, never visual-only.
+                if (moved && moved.stage !== column.stage)
+                  onMoveStage(taskId, column.stage)
+              }}
+              className={cn(
+                'flex w-72 shrink-0 flex-col rounded-md outline-2',
+                isDropTarget ? 'outline outline-brand-600' : 'outline-transparent',
+              )}
             >
               <div className="flex items-center justify-between border-b border-border-subtle pb-2">
                 <h2
@@ -474,7 +623,12 @@ function Board({
                   {columnTasks.length}
                 </span>
               </div>
-              <div className="mt-3 flex flex-col gap-3">
+              <div
+                className={cn(
+                  'mt-3 flex flex-col',
+                  density === 'compact' ? 'gap-2' : 'gap-3',
+                )}
+              >
                 {columnTasks.length === 0 ? (
                   // An empty column states so explicitly; never a blank gap
                   // (FR-KAN-005).
@@ -486,6 +640,8 @@ function Board({
                     <TaskRow
                       key={task.id}
                       task={task}
+                      density={density}
+                      draggable
                       onOpen={() => onOpen(task.id)}
                       onMoveStage={(stage) => onMoveStage(task.id, stage)}
                       onSetPriority={(priority) => onSetPriority(task.id, priority)}
@@ -504,21 +660,182 @@ function Board({
   )
 }
 
+/**
+ * Task list — the List view of the project workspace (FR-LIST).
+ *
+ * Same tasks, same state, same API as the board: title opens the drawer,
+ * stage changes through the keyboard-operable select, priority is always an
+ * explicit badge. Rows are data-complete at every width — narrow screens
+ * stack each row with visible field labels rather than dropping columns.
+ */
+function TaskList({
+  items,
+  user,
+  density,
+  onOpen,
+  onMoveStage,
+}: {
+  items: Array<{
+    task: BackendTask
+    matchedIn?: 'title' | 'description' | 'both'
+  }>
+  user: BackendUser | null
+  density: Density
+  onOpen: (taskId: string) => void
+  onMoveStage: (taskId: string, stage: BackendTask['stage']) => void
+}) {
+  const rowPadding = density === 'compact' ? 'px-3 py-2' : 'p-3'
+
+  return (
+    <div>
+      <div className="mb-2 hidden grid-cols-12 gap-3 rounded-md bg-bg-subtle px-3 py-2 md:grid">
+        <span className="col-span-4 text-overline text-text-muted">Title</span>
+        <span className="col-span-2 text-overline text-text-muted">Stage</span>
+        <span className="col-span-2 text-overline text-text-muted">
+          Priority
+        </span>
+        <span className="col-span-2 text-overline text-text-muted">
+          Assignee
+        </span>
+        <span className="col-span-2 text-overline text-text-muted">
+          Due date
+        </span>
+      </div>
+      <ul
+        className={cn(
+          'flex flex-col',
+          density === 'compact' ? 'gap-1' : 'gap-2',
+        )}
+      >
+        {items.map(({ task, matchedIn }) => {
+          const overdue = isOverdue(task.dueDate)
+          return (
+            <li
+              key={task.id}
+              className={cn(
+                'rounded-md border border-border-subtle bg-bg-surface',
+                'transition-colors duration-100 ease-standard',
+                'hover:bg-bg-subtle',
+                rowPadding,
+              )}
+            >
+              <div className="flex flex-col gap-1 md:grid md:grid-cols-12 md:items-center md:gap-3">
+                <div className="md:col-span-4 md:min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => onOpen(task.id)}
+                    className="block w-full truncate text-left text-body text-text-brand underline-offset-4 hover:underline"
+                  >
+                    {task.title}
+                  </button>
+                  {matchedIn === 'description' && task.description ? (
+                    <p className="mt-0.5 text-meta text-text-muted">
+                      Matched in description
+                    </p>
+                  ) : null}
+                </div>
+                <div className="md:col-span-2 md:min-w-0">
+                  <span className="text-meta text-text-muted md:hidden">
+                    Stage:{' '}
+                  </span>
+                  <Select
+                    label={`Stage for ${task.title}`}
+                    value={task.stage}
+                    onChange={(stage) =>
+                      onMoveStage(task.id, stage as BackendTask['stage'])
+                    }
+                    options={STAGES.map((stage) => ({
+                      value: stage.value,
+                      label: stage.label,
+                    }))}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <span className="text-meta text-text-muted md:hidden">
+                    Priority:{' '}
+                  </span>
+                  <Badge
+                    tone={
+                      task.priority === 'HIGH'
+                        ? 'danger'
+                        : task.priority === 'MEDIUM'
+                          ? 'warning'
+                          : 'neutral'
+                    }
+                  >
+                    {task.priority === 'HIGH'
+                      ? 'High'
+                      : task.priority === 'MEDIUM'
+                        ? 'Medium'
+                        : task.priority === 'LOW'
+                          ? 'Low'
+                          : 'No priority'}
+                  </Badge>
+                </div>
+                <p className="text-body text-text-secondary md:col-span-2 md:truncate">
+                  <span className="text-meta text-text-muted md:hidden">
+                    Assignee:{' '}
+                  </span>
+                  {assigneeLabel(task, user)}
+                </p>
+                <p
+                  className={cn(
+                    'text-body md:col-span-2',
+                    overdue ? 'text-status-danger-text' : 'text-text-secondary',
+                  )}
+                >
+                  <span className="text-meta text-text-muted md:hidden">
+                    Due:{' '}
+                  </span>
+                  {task.dueDate ? task.dueDate.slice(0, 10) : 'No due date'}
+                </p>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 function TaskRow({
   task,
   matchedIn,
+  density,
+  draggable = false,
   onOpen,
   onMoveStage,
   onSetPriority,
 }: {
   task: BackendTask
   matchedIn?: 'title' | 'description' | 'both'
+  density: Density
+  /** Board cards only: dragged into another column to move stage. */
+  draggable?: boolean
   onOpen: () => void
   onMoveStage: (stage: BackendTask['stage']) => void
   onSetPriority: (priority: BackendTask['priority']) => void
 }) {
+  // Source highlight while dragging. An instant class toggle, never a
+  // transition, so it is safe under prefers-reduced-motion by construction.
+  const [dragging, setDragging] = useState(false)
+
   return (
-    <article className="rounded-md border border-border-default bg-bg-surface p-3">
+    <article
+      draggable={draggable}
+      onDragStart={(event) => {
+        if (!draggable) return
+        event.dataTransfer.setData('text/plain', task.id)
+        event.dataTransfer.effectAllowed = 'move'
+        setDragging(true)
+      }}
+      onDragEnd={() => setDragging(false)}
+      className={cn(
+        'rounded-md border border-border-default bg-bg-surface',
+        density === 'compact' ? 'p-2' : 'p-3',
+        dragging && 'opacity-60',
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-body text-text-primary">
           {/* Match location is indicated on the matched field (AC-SEARCH-08). */}
