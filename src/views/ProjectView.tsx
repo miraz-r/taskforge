@@ -12,7 +12,7 @@
  * that requirement and needs no second mechanism to keep in step.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { EmptyState } from '../components/EmptyState'
@@ -83,6 +83,29 @@ export function ProjectView({
   const [searching, setSearching] = useState(false)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const [stageFilter, setStageFilter] = useState<BackendTask['stage'] | null>(null)
+
+  // The control that opened the drawer, so focus can return to it on close
+  // (FR-DRAWER-007). Captured at open time: by close time the active element
+  // is inside the drawer being unmounted.
+  const openerRef = useRef<HTMLElement | null>(null)
+
+  function openTaskDrawer(taskId: string) {
+    openerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    setOpenTaskId(taskId)
+  }
+
+  // Focus returns to the opener AFTER the drawer leaves the DOM. While it is
+  // still open the page content is inert and focusing an inert element is
+  // silently a no-op — the same ordering the AppShell overlay uses.
+  useEffect(() => {
+    if (openTaskId !== null || !openerRef.current) return
+    const opener = openerRef.current
+    openerRef.current = null
+    opener.focus()
+  }, [openTaskId])
 
   /**
    * `silent` refreshes the data without tearing the view down to the loading
@@ -197,7 +220,10 @@ export function ProjectView({
       activeRoute="projects"
       onNavigate={navTarget}
     >
-      <div className="px-(--tf-gutter) py-8">
+      <div
+        inert={openTaskId !== null ? true : undefined}
+        className="px-(--tf-gutter) py-8"
+      >
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <a
@@ -348,7 +374,7 @@ export function ProjectView({
                     <TaskRow
                       task={hit.task}
                       matchedIn={hit.matchedIn}
-                      onOpen={() => setOpenTaskId(hit.task.id)}
+                      onOpen={() => openTaskDrawer(hit.task.id)}
                       onMoveStage={(stage) => void onMoveStage(hit.task.id, stage)}
                       onSetPriority={(priority) =>
                         void onSetPriority(hit.task.id, priority)
@@ -366,7 +392,7 @@ export function ProjectView({
               // that column (AC-DASH-05) rather than scrolling to it, so the
               // route stays the single source of truth.
               highlightStage={stageFilter}
-              onOpen={(taskId) => setOpenTaskId(taskId)}
+              onOpen={openTaskDrawer}
               onMoveStage={onMoveStage}
               onSetPriority={onSetPriority}
             />
@@ -481,23 +507,24 @@ function TaskRow({
           {/* Match location is indicated on the matched field (AC-SEARCH-08). */}
           {task.title}
         </h3>
-        {task.priority !== 'NONE' ? (
-          <Badge
-            tone={
-              task.priority === 'HIGH'
-                ? 'danger'
-                : task.priority === 'MEDIUM'
-                  ? 'warning'
-                  : 'neutral'
-            }
-          >
-            {task.priority === 'HIGH'
-              ? 'High'
+        {/* No priority is an explicit badge, never a blank cell (6.9). */}
+        <Badge
+          tone={
+            task.priority === 'HIGH'
+              ? 'danger'
               : task.priority === 'MEDIUM'
-                ? 'Medium'
-                : 'Low'}
-          </Badge>
-        ) : null}
+                ? 'warning'
+                : 'neutral'
+          }
+        >
+          {task.priority === 'HIGH'
+            ? 'High'
+            : task.priority === 'MEDIUM'
+              ? 'Medium'
+              : task.priority === 'LOW'
+                ? 'Low'
+                : 'No priority'}
+        </Badge>
       </div>
 
       {matchedIn === 'description' && task.description ? (
@@ -599,6 +626,51 @@ function TaskDrawer({
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const drawerRef = useRef<HTMLElement | null>(null)
+  // Stable across renders: the key handler is registered once, while the
+  // parent's inline onClose is a new closure every render.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
+  // Move focus into the drawer on open, so a keyboard user is not left behind
+  // the inert page content. Same ordering as the AppShell overlay.
+  useEffect(() => {
+    drawerRef.current
+      ?.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus()
+  }, [])
+
+  // Esc closes; Tab cycles inside the drawer and never reaches the inert page
+  // (FR-DRAWER-007, NFR-ACCESS-004).
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab' || !drawerRef.current) return
+      const focusable = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute('disabled'))
+      if (focusable.length === 0) return
+      const first = focusable[0] as HTMLElement
+      const last = focusable[focusable.length - 1] as HTMLElement
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -634,6 +706,7 @@ function TaskDrawer({
         className="absolute inset-0 bg-bg-overlay"
       />
       <aside
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-drawer-heading"
