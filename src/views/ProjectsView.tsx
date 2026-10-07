@@ -9,10 +9,11 @@
  * the initial milestone (FR-PRJ-012), so nothing exists to invoke.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
+import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorState, FormError } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
@@ -42,6 +43,26 @@ export function ProjectsView({
   const [confirmingArchive, setConfirmingArchive] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // The control that opened a dialog, so focus returns to it on close
+  // (NFR-ACCESS-004). Same ordering as the AppShell overlay and task drawer:
+  // focus moves only after the dialog has left the DOM and the page is no
+  // longer inert.
+  const openerRef = useRef<HTMLElement | null>(null)
+
+  function captureOpener() {
+    openerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+  }
+
+  useEffect(() => {
+    if (creating || confirmingArchive !== null || !openerRef.current) return
+    const opener = openerRef.current
+    openerRef.current = null
+    opener.focus()
+  }, [creating, confirmingArchive])
 
   const load = useCallback(async () => {
     setState({ status: 'loading' })
@@ -88,19 +109,33 @@ export function ProjectsView({
     await load()
   }
 
+  // The project awaiting archive confirmation, if any. Rendered in a dialog
+  // rather than inline so the decision is modal (resolved D-19).
+  const confirmingProject =
+    state.status === 'ready'
+      ? (state.projects.find((project) => project.id === confirmingArchive) ??
+        null)
+      : null
+
   return (
     <AppShell
       activeRoute="projects"
       onNavigate={navTarget}
     >
-      <div className="px-(--tf-gutter) py-8">
+      <div
+        inert={creating || confirmingArchive !== null ? true : undefined}
+        className="px-(--tf-gutter) py-8"
+      >
         <div className="mx-auto w-full max-w-(--tf-content-reading)">
           <header className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-h1 text-text-primary">Projects</h1>
             {state.status === 'ready' && !creating ? (
               <Button
                 variant="primary"
-                onClick={() => setCreating(true)}
+                onClick={() => {
+                  captureOpener()
+                  setCreating(true)
+                }}
               >
                 Create project
               </Button>
@@ -111,14 +146,6 @@ export function ProjectsView({
             <div className="mt-6">
               <FormError message={error} />
             </div>
-          ) : null}
-
-          {creating ? (
-            <CreateProjectForm
-              busy={busy}
-              onSubmit={onCreate}
-              onCancel={() => setCreating(false)}
-            />
           ) : null}
 
           <div className="mt-6">
@@ -151,7 +178,13 @@ export function ProjectsView({
                 description="Projects group the tasks you are working on. Create one to get started."
                 action={
                   creating ? null : (
-                    <Button variant="primary" onClick={() => setCreating(true)}>
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        captureOpener()
+                        setCreating(true)
+                      }}
+                    >
                       Create your first project
                     </Button>
                   )
@@ -164,13 +197,13 @@ export function ProjectsView({
                     <ProjectRow
                       project={project}
                       busy={busy}
-                      confirming={confirmingArchive === project.id}
                       onOpen={() =>
                         onNavigate(paths.project(workspaceId, project.id))
                       }
-                      onRequestArchive={() => setConfirmingArchive(project.id)}
-                      onCancelArchive={() => setConfirmingArchive(null)}
-                      onConfirmArchive={() => void onArchive(project.id)}
+                      onRequestArchive={() => {
+                        captureOpener()
+                        setConfirmingArchive(project.id)
+                      }}
                     />
                   </li>
                 ))}
@@ -179,6 +212,30 @@ export function ProjectsView({
           </div>
         </div>
       </div>
+
+      {creating ? (
+        <Dialog
+          title="Create a project"
+          onClose={() => {
+            if (!busy) setCreating(false)
+          }}
+        >
+          <CreateProjectForm
+            busy={busy}
+            onSubmit={onCreate}
+            onCancel={() => setCreating(false)}
+          />
+        </Dialog>
+      ) : null}
+
+      {confirmingProject ? (
+        <ArchiveProjectDialog
+          projectName={confirmingProject.name}
+          busy={busy}
+          onConfirm={() => void onArchive(confirmingProject.id)}
+          onCancel={() => setConfirmingArchive(null)}
+        />
+      ) : null}
     </AppShell>
   )
 }
@@ -198,8 +255,6 @@ function CreateProjectForm({
   return (
     <form
       noValidate
-      aria-labelledby="create-project-heading"
-      className="mt-6 rounded-lg border border-border-default bg-bg-surface p-5"
       onSubmit={(event) => {
         event.preventDefault()
         setFieldError(undefined)
@@ -208,47 +263,79 @@ function CreateProjectForm({
         })
       }}
     >
-      <h2 id="create-project-heading" className="text-h3 text-text-primary">
-        Create a project
-      </h2>
-      <div className="mt-4 flex flex-col gap-5">
-        <TextField
-          id="project-name"
-          label="Project name"
-          value={name}
-          error={fieldError}
-          hint="For example: Platform Redesign"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <div className="flex gap-3">
-          <Button type="submit" variant="primary" loading={busy}>
-            Create project
-          </Button>
-          <Button variant="secondary" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-        </div>
+      <TextField
+        id="project-name"
+        label="Project name"
+        value={name}
+        error={fieldError}
+        hint="For example: Platform Redesign"
+        onChange={(event) => setName(event.target.value)}
+      />
+      <div className="mt-5 flex gap-3">
+        <Button type="submit" variant="primary" loading={busy}>
+          Create project
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
       </div>
     </form>
+  )
+}
+
+function ArchiveProjectDialog({
+  projectName,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  projectName: string
+  busy: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Dialog
+      width="confirmation"
+      title="Archive project"
+      description={`Archive “${projectName}”? It keeps all of its tasks and comments, and you can restore it at any time.`}
+      onClose={() => {
+        if (!busy) onCancel()
+      }}
+      footer={
+        <>
+          <Button
+            variant="secondary"
+            size="compact"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="compact"
+            loading={busy}
+            onClick={onConfirm}
+          >
+            Archive project
+          </Button>
+        </>
+      }
+    />
   )
 }
 
 function ProjectRow({
   project,
   busy,
-  confirming,
   onOpen,
   onRequestArchive,
-  onCancelArchive,
-  onConfirmArchive,
 }: {
   project: BackendProject
   busy: boolean
-  confirming: boolean
   onOpen: () => void
   onRequestArchive: () => void
-  onCancelArchive: () => void
-  onConfirmArchive: () => void
 }) {
   return (
     <Card>
@@ -275,37 +362,6 @@ function ProjectRow({
           </Button>
         </div>
       </div>
-
-      {confirming ? (
-        <div
-          role="group"
-          aria-label={`Confirm archiving ${project.name}`}
-          className="mt-4 rounded-md border border-status-warning-border bg-status-warning-bg p-3"
-        >
-          <p className="text-body text-text-primary">
-            Archive this project? It keeps all of its tasks and comments, and you
-            can restore it at any time.
-          </p>
-          <div className="mt-3 flex gap-3">
-            <Button
-              variant="primary"
-              size="compact"
-              loading={busy}
-              onClick={onConfirmArchive}
-            >
-              Archive project
-            </Button>
-            <Button
-              variant="secondary"
-              size="compact"
-              onClick={onCancelArchive}
-              disabled={busy}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : null}
     </Card>
   )
 }

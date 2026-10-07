@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { Dialog } from '../components/Dialog'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorState, FormError } from '../components/ErrorState'
 import { Select } from '../components/Select'
@@ -89,23 +90,32 @@ export function ProjectView({
   // is inside the drawer being unmounted.
   const openerRef = useRef<HTMLElement | null>(null)
 
-  function openTaskDrawer(taskId: string) {
+  function captureOpener() {
     openerRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
+  }
+
+  function openTaskDrawer(taskId: string) {
+    captureOpener()
     setOpenTaskId(taskId)
+  }
+
+  function openCreate() {
+    captureOpener()
+    setCreating(true)
   }
 
   // Focus returns to the opener AFTER the drawer leaves the DOM. While it is
   // still open the page content is inert and focusing an inert element is
   // silently a no-op — the same ordering the AppShell overlay uses.
   useEffect(() => {
-    if (openTaskId !== null || !openerRef.current) return
+    if (openTaskId !== null || creating || !openerRef.current) return
     const opener = openerRef.current
     openerRef.current = null
     opener.focus()
-  }, [openTaskId])
+  }, [openTaskId, creating])
 
   /**
    * `silent` refreshes the data without tearing the view down to the loading
@@ -221,7 +231,7 @@ export function ProjectView({
       onNavigate={navTarget}
     >
       <div
-        inert={openTaskId !== null ? true : undefined}
+        inert={openTaskId !== null || creating ? true : undefined}
         className="px-(--tf-gutter) py-8"
       >
         <header className="flex flex-wrap items-center justify-between gap-3">
@@ -237,7 +247,7 @@ export function ProjectView({
             </h1>
           </div>
           {state.status === 'ready' && !creating && !state.summary.isEmpty ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={openCreate}>
               Create task
             </Button>
           ) : null}
@@ -247,14 +257,6 @@ export function ProjectView({
           <div className="mt-6">
             <FormError message={error} />
           </div>
-        ) : null}
-
-        {creating ? (
-          <CreateTaskForm
-            busy={busy}
-            onSubmit={onCreateTask}
-            onCancel={() => setCreating(false)}
-          />
         ) : null}
 
         {/* Current-project search (resolved D-13) */}
@@ -347,7 +349,7 @@ export function ProjectView({
               description="Create your first task to start tracking work. Every task starts in the Backlog."
               action={
                 creating ? null : (
-                  <Button variant="primary" onClick={() => setCreating(true)}>
+                  <Button variant="primary" onClick={openCreate}>
                     Create a task
                   </Button>
                 )
@@ -407,6 +409,21 @@ export function ProjectView({
           onClose={() => setOpenTaskId(null)}
           onChanged={() => void load({ silent: true })}
         />
+      ) : null}
+
+      {creating ? (
+        <Dialog
+          title="Create a task"
+          onClose={() => {
+            if (!busy) setCreating(false)
+          }}
+        >
+          <CreateTaskForm
+            busy={busy}
+            onSubmit={onCreateTask}
+            onCancel={() => setCreating(false)}
+          />
+        </Dialog>
       ) : null}
     </AppShell>
   )
@@ -574,8 +591,6 @@ function CreateTaskForm({
   return (
     <form
       noValidate
-      aria-labelledby="create-task-heading"
-      className="mt-6 rounded-lg border border-border-default bg-bg-surface p-5"
       onSubmit={(event) => {
         event.preventDefault()
         setFieldError(undefined)
@@ -584,26 +599,21 @@ function CreateTaskForm({
         })
       }}
     >
-      <h2 id="create-task-heading" className="text-h3 text-text-primary">
-        Create a task
-      </h2>
-      <div className="mt-4 flex flex-col gap-5">
-        <TextField
-          id="task-title"
-          label="Task title"
-          value={title}
-          error={fieldError}
-          hint="New tasks start in the Backlog."
-          onChange={(event) => setTitle(event.target.value)}
-        />
-        <div className="flex gap-3">
-          <Button type="submit" variant="primary" loading={busy}>
-            Create task
-          </Button>
-          <Button variant="secondary" onClick={onCancel} disabled={busy}>
-            Cancel
-          </Button>
-        </div>
+      <TextField
+        id="task-title"
+        label="Task title"
+        value={title}
+        error={fieldError}
+        hint="New tasks start in the Backlog."
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <div className="mt-5 flex gap-3">
+        <Button type="submit" variant="primary" loading={busy}>
+          Create task
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
       </div>
     </form>
   )

@@ -307,6 +307,10 @@
   --tf-sidebar-width: 240px;
   --tf-content-form: 400px;
   --tf-content-reading: 640px;
+
+  /* Dialog widths (4.2, 6.5). Wide reuses the reading measure (640px). */
+  --tf-dialog-confirm: 440px;
+  --tf-dialog-standard: 480px;
 }
 
 /* --------------------------------------------------------------------------
