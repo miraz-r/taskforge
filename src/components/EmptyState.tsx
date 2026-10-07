@@ -54,7 +54,7 @@ export function EmptyState({
       >
         {headline}
       </Heading>
-      <p className="mt-2 max-w-[48ch] text-body-lg text-text-secondary">
+      <p className="mt-2 tf-measure-form text-body-lg text-text-secondary">
         {description}
       </p>
       {action ? <div className="mt-8">{action}</div> : null}

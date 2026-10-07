@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { Card } from '../components/Card'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorState, FormError } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
@@ -250,12 +251,12 @@ function ProjectRow({
   onConfirmArchive: () => void
 }) {
   return (
-    <div className="rounded-lg border border-border-default bg-bg-surface p-4">
+    <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-h3 text-text-primary">{project.name}</h2>
           {project.description ? (
-            <p className="mt-1 max-w-[60ch] text-body text-text-secondary">
+            <p className="mt-1 tf-measure-reading text-body text-text-secondary">
               {project.description}
             </p>
           ) : null}
@@ -305,7 +306,7 @@ function ProjectRow({
           </div>
         </div>
       ) : null}
-    </div>
+    </Card>
   )
 }
 

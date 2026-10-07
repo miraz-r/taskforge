@@ -57,7 +57,7 @@ export function ComingSoon({
       >
         {featureName}
       </Heading>
-      <p className="mt-1 max-w-[44ch] text-body text-text-secondary">
+      <p className="mt-1 tf-measure-form text-body text-text-secondary">
         {description}
       </p>
       {icon ? <div className="mt-4 text-text-muted">{icon}</div> : null}

@@ -17,7 +17,7 @@ export function BuildScopeNotice() {
           Foundation milestone
         </span>
       </div>
-      <p className="mt-2 max-w-[70ch] text-body text-text-secondary">
+      <p className="mt-2 tf-measure-reading text-body text-text-secondary">
         This build implements authentication, workspace membership, workspace
         switching, and theming. Projects, tasks, the board, the list view,
         comments, search, and the dashboard are not built yet. Nothing below this

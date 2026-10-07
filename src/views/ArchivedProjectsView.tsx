@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { Card } from '../components/Card'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorState, FormError } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
@@ -83,7 +84,7 @@ export function ArchivedProjectsView({
               Back to projects
             </a>
             <h1 className="mt-1 text-h1 text-text-primary">Archived projects</h1>
-            <p className="mt-2 max-w-[70ch] text-body text-text-secondary">
+            <p className="mt-2 tf-measure-reading text-body text-text-secondary">
               Archived projects keep all of their tasks and comments and are left
               out of project summaries. Restoring one returns it to the active
               list with everything intact.
@@ -127,10 +128,7 @@ export function ArchivedProjectsView({
             ) : (
               <ul className="flex flex-col gap-3">
                 {state.projects.map((project) => (
-                  <li
-                    key={project.id}
-                    className="rounded-lg border border-border-default bg-bg-surface p-4"
-                  >
+                  <Card as="li" key={project.id}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -155,7 +153,7 @@ export function ArchivedProjectsView({
                         Restore
                       </Button>
                     </div>
-                  </li>
+                  </Card>
                 ))}
               </ul>
             )}

@@ -20,6 +20,7 @@
  */
 
 import type { BackendTask, DashboardData } from '../data/backend'
+import { Card } from './Card'
 
 export function StageDistribution({
   data,
@@ -32,22 +33,23 @@ export function StageDistribution({
   if (data.isEmpty) {
     // AC-DASH-03 / FR-DASH-004: an explicit empty state, not a zero figure.
     return (
-      <div className="rounded-lg border border-border-default bg-bg-surface p-5">
+      <Card padding="lg">
         <h3 className="text-h3 text-text-primary">No progress to show yet</h3>
-        <p className="mt-1 max-w-[60ch] text-body text-text-secondary">
+        <p className="mt-1 tf-measure-reading text-body text-text-secondary">
           This project has no tasks, so there is nothing to summarize. Progress
           appears here once tasks exist.
         </p>
-      </div>
+      </Card>
     )
   }
 
   const max = Math.max(...data.byStage.map((stage) => stage.count), 1)
 
   return (
-    <section
+    <Card
+      as="section"
+      padding="lg"
       aria-labelledby="stage-distribution-heading"
-      className="rounded-lg border border-border-default bg-bg-surface p-5"
     >
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <h3
@@ -123,6 +125,6 @@ export function StageDistribution({
           ) : null}
         </dl>
       ) : null}
-    </section>
+    </Card>
   )
 }

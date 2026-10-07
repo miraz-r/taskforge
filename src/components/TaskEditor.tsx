@@ -19,8 +19,10 @@
 
 import { useState } from 'react'
 import { Button } from './Button'
+import { DateField } from './DateField'
 import { FormError } from './ErrorState'
 import { Select } from './Select'
+import { Textarea } from './Textarea'
 import { TextField } from './TextField'
 import { getService } from '../access/service'
 import type { BackendTask, BackendUser } from '../data/backend'
@@ -122,21 +124,13 @@ export function TaskEditor({
         onChange={(event) => setTitle(event.target.value)}
       />
 
-      <div className="flex flex-col">
-        <label
-          htmlFor="edit-task-description"
-          className="mb-1.5 text-label text-text-secondary"
-        >
-          Description
-        </label>
-        <textarea
-          id="edit-task-description"
-          value={description}
-          rows={3}
-          onChange={(event) => setDescription(event.target.value)}
-          className="w-full rounded-md border border-border-default bg-bg-surface px-3 py-2 text-body text-text-primary transition-colors duration-100 ease-standard hover:border-border-strong focus:border-border-focus"
-        />
-      </div>
+      <Textarea
+        id="edit-task-description"
+        label="Description"
+        value={description}
+        rows={3}
+        onChange={(event) => setDescription(event.target.value)}
+      />
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Select
@@ -172,26 +166,17 @@ export function TaskEditor({
         </p>
       </div>
 
-      <div className="flex flex-col">
-        <label
-          htmlFor="edit-task-due"
-          className="mb-1.5 text-label text-text-secondary"
-        >
-          Due date
-        </label>
-        <input
-          id="edit-task-due"
-          type="date"
-          value={dueDate}
-          onChange={(event) => setDueDate(event.target.value)}
-          className="h-9 w-full rounded-md border border-border-default bg-bg-surface px-3 text-body text-text-primary transition-colors duration-100 ease-standard hover:border-border-strong focus:border-border-focus"
-        />
-        <p className="mt-1.5 text-meta text-text-muted">
-          {dueDate === ''
+      <DateField
+        id="edit-task-due"
+        label="Due date"
+        value={dueDate}
+        onChange={(event) => setDueDate(event.target.value)}
+        hint={
+          dueDate === ''
             ? 'No due date set. A due date is optional.'
-            : `Due ${dueDate}`}
-        </p>
-      </div>
+            : `Due ${dueDate}`
+        }
+      />
 
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" loading={saving}>
