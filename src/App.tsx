@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { useApp } from './app/AppContext'
 import { ROUTES, useHashRoute } from './routing/useHashRoute'
 import { parseScope, pathForGuard, resolveGuard } from './routing/guard'
@@ -32,46 +33,67 @@ export function App() {
     if (target !== path) navigate(target, { replace: true })
   }, [guarded, path, navigate])
 
-  if (guarded === 'boot') return <BootScreen />
-
-  if (guarded === 'workspace' || guarded === 'new-workspace') {
-    return <WorkspaceView path={path} onNavigate={navigate} />
+  if (guarded === 'boot') {
+    return (
+      <div key="boot" className="tf-enter-fade">
+        <BootScreen />
+      </div>
+    )
   }
 
-  if (guarded === 'pass-through') {
+  // Restrained route transition (WS05 Checkpoint D): the incoming view fades
+  // in via the reusable fade primitive (150ms, opacity only). The key
+  // changes only when the view kind changes, so same-view navigation (one
+  // project to another) keeps its existing state and behavior exactly.
+  // Entrance-only by design — there is no exit bookkeeping, no navigation
+  // delay, and nothing here touches focus, scroll, or the guard. Under
+  // reduced motion the fade collapses via the global rule.
+  let viewKey: string = guarded
+  let view: ReactNode
+  if (guarded === 'workspace' || guarded === 'new-workspace') {
+    view = <WorkspaceView path={path} onNavigate={navigate} />
+  } else if (guarded === 'pass-through') {
     const scope = parseScope(path)
     if (scope?.projectId) {
-      return (
+      viewKey = 'project'
+      view = (
         <ProjectView
           workspaceId={scope.workspaceId}
           projectId={scope.projectId}
           onNavigate={navigate}
         />
       )
-    }
-    if (scope?.archived) {
-      return (
+    } else if (scope?.archived) {
+      viewKey = 'archived'
+      view = (
         <ArchivedProjectsView
           workspaceId={scope.workspaceId}
           onNavigate={navigate}
         />
       )
-    }
-    if (scope) {
-      return (
+    } else if (scope) {
+      viewKey = 'projects'
+      view = (
         <ProjectsView workspaceId={scope.workspaceId} onNavigate={navigate} />
       )
+    } else if (path === ROUTES.profile) {
+      viewKey = 'profile'
+      view = <ProfileView onNavigate={navigate} />
+    } else {
+      // Unreachable in practice: the guard only returns pass-through for a
+      // workspace-scoped path. Falling back to the workspace view is the safe
+      // choice rather than rendering nothing.
+      view = <WorkspaceView path={path} onNavigate={navigate} />
     }
-    if (path === ROUTES.profile) {
-      return <ProfileView onNavigate={navigate} />
-    }
-    // Unreachable in practice: the guard only returns pass-through for a
-    // workspace-scoped path. Falling back to the workspace view is the safe
-    // choice rather than rendering nothing.
-    return <WorkspaceView path={path} onNavigate={navigate} />
+  } else if (guarded === 'register') {
+    view = <RegisterView />
+  } else {
+    view = <SignInView />
   }
 
-  if (guarded === 'register') return <RegisterView />
-
-  return <SignInView />
+  return (
+    <div key={viewKey} className="tf-enter-fade">
+      {view}
+    </div>
+  )
 }

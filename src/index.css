@@ -515,6 +515,144 @@
 }
 
 /* --------------------------------------------------------------------------
+   5b. Reusable motion primitives — design-system 9.5 (WS05 Checkpoint A)
+
+   Enter/exit building blocks for dialog, drawer, dropdown/menu, toast, and
+   staggered content. Transform and opacity only (9.2); every duration and
+   easing resolves to a --tf-motion-* / --ease-* token (9.3, 9.4). Distances
+   reuse the §9.5 values: dialog translateY(8px), dropdown translateY(-4px),
+   toast translateY(12px). The drawer has no specified distance in §9.5, so
+   it reuses the largest specified distance, 12px on translateX.
+
+   Durations follow §9.5 exactly, except the drawer: §9.5 specifies 220ms
+   but the token set (9.3) has no 220ms step, so motion.slow (200ms) is
+   used — no new duration value is introduced.
+
+   `both` fill mode holds the first frame during stagger delays so items
+   never flash unstyled. Exits are provided as classes; wiring them to
+   unmount timing belongs to the later overlay checkpoints, not here.
+   -------------------------------------------------------------------------- */
+@keyframes tf-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tf-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dialog enter: opacity 0→1 with translateY(8px)→0 (9.5). */
+@keyframes tf-rise-8 {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown enter: opacity + translateY(−4px) (9.5). */
+@keyframes tf-drop-4 {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Toast enter: translateY(12px)→0 (9.5). */
+@keyframes tf-rise-12 {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Drawer enter: translateX from the edge (9.5), reusing the 12px step. */
+@keyframes tf-slide-edge {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@layer components {
+  /* Lightweight generic fade entrance/exit (motion.base, enter/exit). */
+  .tf-enter-fade {
+    animation: tf-fade-in var(--tf-motion-base) var(--ease-enter) both;
+  }
+  .tf-exit-fade {
+    animation: tf-fade-out var(--tf-motion-base) var(--ease-exit) both;
+  }
+
+  /* Lightweight generic slide entrance (dialog distance, base duration). */
+  .tf-enter-rise {
+    animation: tf-rise-8 var(--tf-motion-base) var(--ease-enter) both;
+  }
+
+  /* Dialog enter 200ms / exit 150ms (9.5). */
+  .tf-enter-dialog {
+    animation: tf-rise-8 var(--tf-motion-slow) var(--ease-enter) both;
+  }
+  .tf-exit-dialog {
+    animation: tf-fade-out var(--tf-motion-base) var(--ease-exit) both;
+  }
+
+  /* Dropdown/menu enter 150ms (9.5). */
+  .tf-enter-dropdown {
+    animation: tf-drop-4 var(--tf-motion-base) var(--ease-enter) both;
+  }
+
+  /* Drawer enter (9.5; slow token stands in for the unspecified 220ms). */
+  .tf-enter-drawer {
+    animation: tf-slide-edge var(--tf-motion-slow) var(--ease-enter) both;
+  }
+
+  /* Toast enter 200ms (9.5). */
+  .tf-enter-toast {
+    animation: tf-rise-12 var(--tf-motion-slow) var(--ease-enter) both;
+  }
+
+  /* Staggered content entry. Delay steps reuse duration tokens as delays
+     so no new time value is introduced; the cascade caps at motion.slow
+     so later siblings never wait longer than one slow transition. */
+  .tf-stagger > * {
+    animation: tf-rise-8 var(--tf-motion-base) var(--ease-enter) both;
+  }
+  .tf-stagger > *:nth-child(2) {
+    animation-delay: var(--tf-motion-fast);
+  }
+  .tf-stagger > *:nth-child(3) {
+    animation-delay: var(--tf-motion-base);
+  }
+  .tf-stagger > *:nth-child(n + 4) {
+    animation-delay: var(--tf-motion-slow);
+  }
+}
+
+/* --------------------------------------------------------------------------
    6. Reduced motion (8.9, 9.6, NFR-MOTION-001..004)
 
    Non-essential animation is suppressed. Where a motion token conflicts with
@@ -536,5 +674,19 @@
   /* The skeleton becomes a static bg.muted block (9.6). */
   .tf-skeleton::after {
     display: none;
+  }
+
+  /* §9.6 equivalents for the Checkpoint A primitives: every translate
+     collapses to an opacity fade (durations already collapse to 0.01ms
+     above), and stagger waits collapse too — waiting with no motion is
+     still a delay. */
+  .tf-enter-dialog,
+  .tf-enter-drawer,
+  .tf-enter-dropdown,
+  .tf-enter-toast,
+  .tf-enter-rise,
+  .tf-stagger > * {
+    animation-name: tf-fade-in !important;
+    animation-delay: 0ms !important;
   }
 }

@@ -21,6 +21,7 @@ import { TextField } from '../components/TextField'
 import { FolderIcon } from '../components/icons'
 import { AppShell } from '../components/AppShell'
 import { getService } from '../access/service'
+import { useOverlayPresence } from '../lib/presence'
 import { useNavTarget } from '../app/useNavTarget'
 import { paths } from '../routing/useHashRoute'
 import type { BackendProject } from '../data/backend'
@@ -41,6 +42,13 @@ export function ProjectsView({
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [creating, setCreating] = useState(false)
   const [confirmingArchive, setConfirmingArchive] = useState<string | null>(null)
+  // Both dialogs stay mounted through their exit animation and unmount only
+  // once it has played (or synchronously when motion is reduced).
+  const createPresence = useOverlayPresence(creating, '--tf-motion-base')
+  const archivePresence = useOverlayPresence(
+    confirmingArchive !== null,
+    '--tf-motion-base',
+  )
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,11 +66,16 @@ export function ProjectsView({
   }
 
   useEffect(() => {
-    if (creating || confirmingArchive !== null || !openerRef.current) return
+    if (
+      createPresence.render ||
+      archivePresence.render ||
+      !openerRef.current
+    )
+      return
     const opener = openerRef.current
     openerRef.current = null
     opener.focus()
-  }, [creating, confirmingArchive])
+  }, [createPresence.render, archivePresence.render])
 
   const load = useCallback(async () => {
     setState({ status: 'loading' })
@@ -117,13 +130,24 @@ export function ProjectsView({
         null)
       : null
 
+  // The project shown while the confirmation dialog is mounted, including
+  // its exit: after dismissal the id is already null but the exiting dialog
+  // must keep naming the project it is deciding about.
+  const lastArchiveRef = useRef<BackendProject | null>(null)
+  if (confirmingProject) lastArchiveRef.current = confirmingProject
+  const visibleArchiveProject =
+    confirmingProject ??
+    (archivePresence.render ? lastArchiveRef.current : null)
+
   return (
     <AppShell
       activeRoute="projects"
       onNavigate={navTarget}
     >
       <div
-        inert={creating || confirmingArchive !== null ? true : undefined}
+        inert={
+          createPresence.render || archivePresence.render ? true : undefined
+        }
         className="px-(--tf-gutter) py-8"
       >
         <div className="mx-auto w-full max-w-(--tf-content-reading)">
@@ -191,7 +215,7 @@ export function ProjectsView({
                 }
               />
             ) : (
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3 tf-stagger">
                 {state.projects.map((project) => (
                   <li key={project.id}>
                     <ProjectRow
@@ -213,9 +237,10 @@ export function ProjectsView({
         </div>
       </div>
 
-      {creating ? (
+      {createPresence.render ? (
         <Dialog
           title="Create a project"
+          leaving={createPresence.leaving}
           onClose={() => {
             if (!busy) setCreating(false)
           }}
@@ -228,11 +253,12 @@ export function ProjectsView({
         </Dialog>
       ) : null}
 
-      {confirmingProject ? (
+      {visibleArchiveProject ? (
         <ArchiveProjectDialog
-          projectName={confirmingProject.name}
+          projectName={visibleArchiveProject.name}
           busy={busy}
-          onConfirm={() => void onArchive(confirmingProject.id)}
+          leaving={archivePresence.leaving}
+          onConfirm={() => void onArchive(visibleArchiveProject.id)}
           onCancel={() => setConfirmingArchive(null)}
         />
       ) : null}
@@ -286,17 +312,21 @@ function CreateProjectForm({
 function ArchiveProjectDialog({
   projectName,
   busy,
+  leaving = false,
   onConfirm,
   onCancel,
 }: {
   projectName: string
   busy: boolean
+  /** True while the exit animation is playing; the dialog stays mounted. */
+  leaving?: boolean | undefined
   onConfirm: () => void
   onCancel: () => void
 }) {
   return (
     <Dialog
       width="confirmation"
+      leaving={leaving}
       title="Archive project"
       description={`Archive “${projectName}”? It keeps all of its tasks and comments, and you can restore it at any time.`}
       onClose={() => {

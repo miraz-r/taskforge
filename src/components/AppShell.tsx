@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '../lib/cn'
+import { useOverlayPresence } from '../lib/presence'
 import { MenuIcon } from './icons'
 import { Button } from './Button'
 import { Sidebar } from './Sidebar'
@@ -39,6 +40,9 @@ export function AppShell({
 }) {
   const { theme, setTheme, themePersistFailed, signOut } = useApp()
   const [overlayOpen, setOverlayOpen] = useState(false)
+  // Stays mounted through the exit animation; the overlay unmounts only
+  // once the exit has played (or synchronously when motion is reduced).
+  const overlayPresence = useOverlayPresence(overlayOpen, '--tf-motion-base')
   const [signOutPending, setSignOutPending] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const overlaySidebarRef = useRef<HTMLDivElement>(null)
@@ -52,11 +56,14 @@ export function AppShell({
     setOverlayOpen(false)
   }, [])
 
+  // Focus returns only after the overlay has fully unmounted — including
+  // its exit animation. Returning it earlier would target an inert subtree,
+  // where focusing is silently a no-op and focus would be lost.
   useEffect(() => {
-    if (overlayOpen || !returnFocusRef.current) return
+    if (overlayPresence.render || !returnFocusRef.current) return
     returnFocusRef.current = false
     menuButtonRef.current?.focus()
-  }, [overlayOpen])
+  }, [overlayPresence.render])
 
   // Growing past bp.lg makes the sidebar persistent again, so the overlay must
   // not linger.
@@ -116,7 +123,7 @@ export function AppShell({
       </a>
 
       <div
-        inert={overlayOpen ? true : undefined}
+        inert={overlayPresence.render ? true : undefined}
         className="flex min-h-dvh"
       >
         <div className="hidden lg:block">
@@ -176,16 +183,25 @@ export function AppShell({
         </div>
       </div>
 
-      {overlayOpen ? (
+      {overlayPresence.render ? (
         <>
           <div
             aria-hidden="true"
             onClick={closeOverlay}
-            className="fixed inset-0 z-40 bg-bg-overlay lg:hidden"
+            className={cn(
+              'fixed inset-0 z-40 bg-bg-overlay lg:hidden',
+              overlayPresence.leaving ? 'tf-exit-fade' : 'tf-enter-fade',
+            )}
           />
           <div
             ref={overlaySidebarRef}
-            className="fixed inset-y-0 left-0 z-50 lg:hidden"
+            className={cn(
+              'fixed inset-y-0 left-0 z-50 lg:hidden',
+              // Reuses the drawer primitive: a 12px settle with fade. The
+              // keyframe nudges from +x; at this amplitude and duration the
+              // direction reads as a neutral settle on either edge.
+              overlayPresence.leaving ? 'tf-exit-fade' : 'tf-enter-drawer',
+            )}
           >
             <Sidebar
               id={`${SIDEBAR_ID}-overlay`}

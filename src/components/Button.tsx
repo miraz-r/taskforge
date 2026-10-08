@@ -11,7 +11,8 @@
  * the dark theme's existing dark-on-bright pairing. Hover and pressed share
  * the deepened brand.650 step; the press is marked by an instant scale
  * (transform-only, so it is safe under reduced motion) rather than a further
- * fill change.
+ * fill change. Primary also carries a 1px hover lift (transform-only,
+ * 100ms); it collapses under reduced motion via `motion-reduce`.
  */
 
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
@@ -37,7 +38,7 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-600 text-text-on-brand hover:bg-brand-650 active:bg-brand-650 active:scale-[0.98]',
+    'bg-brand-600 text-text-on-brand hover:bg-brand-650 hover:-translate-y-px motion-reduce:hover:translate-y-0 active:bg-brand-650 active:scale-[0.98]',
   secondary:
     'bg-transparent text-text-primary border border-border-default hover:border-border-strong',
   ghost: 'bg-transparent text-text-secondary hover:bg-bg-subtle',
@@ -69,7 +70,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         className={cn(
           'relative inline-flex items-center justify-center rounded-md',
-          'transition-colors duration-100 ease-standard',
+          // Explicit property list: the specified colour/opacity hover plus
+          // transform for the primary lift. No layout property is covered,
+          // and none changes on hover. Focus stays immediate via the global
+          // :focus-visible rule, which beats this class.
+          'transition-[color,background-color,border-color,opacity,transform] duration-100 ease-standard',
           'disabled:cursor-not-allowed',
           variant === 'link' ? 'underline-offset-4' : SIZE_CLASSES[size],
           // A cyan ring on a brand fill would be invisible (8.10): brand fills

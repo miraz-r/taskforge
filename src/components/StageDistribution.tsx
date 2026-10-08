@@ -68,7 +68,10 @@ export function StageDistribution({
           colour alone and survives a monochrome rendering. */}
       <ul className="mt-5 flex flex-col gap-4">
         {data.byStage.map((stage) => {
-          const percent = Math.round((stage.count / max) * 100)
+          // Compositor-safe fill: a full-width bar scaled on transform, so
+          // count changes transition without ever animating layout (9.2).
+          // The 150ms standard transition collapses under reduced motion.
+          const fraction = stage.count / max
           const interactive = onSelectStage !== undefined && stage.count > 0
           const Row = interactive ? 'button' : 'div'
           return (
@@ -97,8 +100,8 @@ export function StageDistribution({
                   aria-label={`${stage.label}: ${stage.count} of ${data.totalTasks} tasks`}
                 >
                   <div
-                    className="h-full rounded-full bg-brand-600"
-                    style={{ width: `${percent}%` }}
+                    className="h-full w-full origin-left rounded-full bg-brand-600 transition-transform duration-150 ease-standard"
+                    style={{ transform: `scaleX(${fraction})` }}
                   />
                 </div>
               </Row>

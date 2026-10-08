@@ -196,6 +196,10 @@ export function Select<T extends string>({
             'absolute z-50 mt-1 max-h-72 w-full min-w-(--tf-content-form)',
             'overflow-auto rounded-lg border border-border-default',
             'bg-bg-surface p-2 shadow-md',
+            // Entrance only (Checkpoint B): the panel mounts with the
+            // reusable dropdown primitive; closing stays instant so no
+            // presence bookkeeping can strand focus or delay the trigger.
+            'tf-enter-dropdown',
           )}
         >
           {options.map((option, index) => {

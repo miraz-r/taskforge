@@ -29,6 +29,7 @@ import { TaskEditor } from '../components/TaskEditor'
 import { useApp } from '../app/AppContext'
 import { getService } from '../access/service'
 import { useNavTarget } from '../app/useNavTarget'
+import { useOverlayPresence } from '../lib/presence'
 import { paths } from '../routing/useHashRoute'
 import {
   readStoredDensity,
@@ -120,6 +121,13 @@ export function ProjectView({
   const [hits, setHits] = useState<SearchHit[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
+  // Both overlays stay mounted through their exit animation and unmount
+  // only once it has played (or synchronously when motion is reduced).
+  const drawerPresence = useOverlayPresence(
+    openTaskId !== null,
+    '--tf-motion-base',
+  )
+  const createPresence = useOverlayPresence(creating, '--tf-motion-base')
   const [stageFilter, setStageFilter] = useState<BackendTask['stage'] | null>(null)
   // Board is the default: it is the existing behaviour and stays put.
   const [view, setView] = useState<ProjectWorkspaceView>('board')
@@ -152,15 +160,17 @@ export function ProjectView({
     setCreating(true)
   }
 
-  // Focus returns to the opener AFTER the drawer leaves the DOM. While it is
-  // still open the page content is inert and focusing an inert element is
-  // silently a no-op — the same ordering the AppShell overlay uses.
+  // Focus returns to the opener only after overlays have fully unmounted —
+  // including their exit animation. While one is still open the page content
+  // is inert and focusing an inert element is silently a no-op — the same
+  // ordering the AppShell overlay uses.
   useEffect(() => {
-    if (openTaskId !== null || creating || !openerRef.current) return
+    if (drawerPresence.render || createPresence.render || !openerRef.current)
+      return
     const opener = openerRef.current
     openerRef.current = null
     opener.focus()
-  }, [openTaskId, creating])
+  }, [drawerPresence.render, createPresence.render])
 
   /**
    * `silent` refreshes the data without tearing the view down to the loading
@@ -270,13 +280,23 @@ export function ProjectView({
     [state, openTaskId],
   )
 
+  // The task rendered while the drawer is mounted, including its exit:
+  // after close the id is already null but the exiting drawer must keep
+  // showing the task it is leaving from.
+  const lastTaskRef = useRef<BackendTask | null>(null)
+  if (openTask) lastTaskRef.current = openTask
+  const visibleTask =
+    openTask ?? (drawerPresence.render ? lastTaskRef.current : null)
+
   return (
     <AppShell
       activeRoute="projects"
       onNavigate={navTarget}
     >
       <div
-        inert={openTaskId !== null || creating ? true : undefined}
+        inert={
+          drawerPresence.render || createPresence.render ? true : undefined
+        }
         className="px-(--tf-gutter) py-8"
       >
         <header className="flex flex-wrap items-center justify-between gap-3">
@@ -500,18 +520,20 @@ export function ProjectView({
         </div>
       </div>
 
-      {openTask ? (
+      {visibleTask ? (
         <TaskDrawer
-          task={openTask}
+          task={visibleTask}
           user={user}
+          leaving={drawerPresence.leaving}
           onClose={() => setOpenTaskId(null)}
           onChanged={() => void load({ silent: true })}
         />
       ) : null}
 
-      {creating ? (
+      {createPresence.render ? (
         <Dialog
           title="Create a task"
+          leaving={createPresence.leaving}
           onClose={() => {
             if (!busy) setCreating(false)
           }}
@@ -625,7 +647,7 @@ function Board({
               </div>
               <div
                 className={cn(
-                  'mt-3 flex flex-col',
+                  'mt-3 flex flex-col tf-stagger',
                   density === 'compact' ? 'gap-2' : 'gap-3',
                 )}
               >
@@ -636,16 +658,24 @@ function Board({
                     Nothing here yet
                   </p>
                 ) : (
+                  // Each card is wrapped so the stagger applies per card and
+                  // a card arriving in a new column (stage move) enters
+                  // there. Cards that stay put never remount, so nothing
+                  // replays on unrelated reloads. The wrapper is
+                  // layout-neutral: column gaps resolve identically.
                   columnTasks.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      density={density}
-                      draggable
-                      onOpen={() => onOpen(task.id)}
-                      onMoveStage={(stage) => onMoveStage(task.id, stage)}
-                      onSetPriority={(priority) => onSetPriority(task.id, priority)}
-                    />
+                    <div key={task.id}>
+                      <TaskRow
+                        task={task}
+                        density={density}
+                        draggable
+                        onOpen={() => onOpen(task.id)}
+                        onMoveStage={(stage) => onMoveStage(task.id, stage)}
+                        onSetPriority={(priority) =>
+                          onSetPriority(task.id, priority)
+                        }
+                      />
+                    </div>
                   ))
                 )}
               </div>
@@ -832,6 +862,11 @@ function TaskRow({
       onDragEnd={() => setDragging(false)}
       className={cn(
         'rounded-md border border-border-default bg-bg-surface',
+        // §9.5 hover treatment (colour/border, 100ms) — the same idiom the
+        // list rows already use. Drag feedback stays an instant opacity
+        // toggle, safe under reduced motion by construction.
+        'transition-colors duration-100 ease-standard',
+        'hover:border-border-strong',
         density === 'compact' ? 'p-2' : 'p-3',
         dragging && 'opacity-60',
       )}
@@ -939,11 +974,14 @@ function CreateTaskForm({
 function TaskDrawer({
   task,
   user,
+  leaving = false,
   onClose,
   onChanged,
 }: {
   task: BackendTask
   user: BackendUser | null
+  /** True while the exit animation is playing; the drawer stays mounted. */
+  leaving?: boolean | undefined
   onClose: () => void
   onChanged: () => void
 }) {
@@ -1030,14 +1068,21 @@ function TaskDrawer({
       <div
         aria-hidden="true"
         onClick={onClose}
-        className="absolute inset-0 bg-bg-overlay"
+        className={cn(
+          'absolute inset-0 bg-bg-overlay',
+          leaving ? 'tf-exit-fade' : 'tf-enter-fade',
+        )}
       />
       <aside
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-drawer-heading"
-        className="relative flex h-full w-full flex-col border-l border-border-subtle bg-bg-surface p-6 lg:w-(--tf-content-form)"
+        className={cn(
+          'relative flex h-full w-full flex-col border-l border-border-subtle',
+          'bg-bg-surface p-6 lg:w-(--tf-content-form)',
+          leaving ? 'tf-exit-fade' : 'tf-enter-drawer',
+        )}
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="task-drawer-heading" className="text-h2 text-text-primary">

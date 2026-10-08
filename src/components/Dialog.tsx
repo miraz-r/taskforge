@@ -16,9 +16,13 @@
  * - the scrim never dismisses: a dialog that contains input must not close
  *   under its user's pointer (6.5), and confirmations close explicitly.
  *
- * Surfaces appear instantly with no enter or exit animation — the same
- * treatment as the drawer and menus — so there is nothing for
- * `prefers-reduced-motion` to suppress and nothing to delay interaction.
+ * Entrance uses the reusable dialog primitive (`.tf-enter-dialog`, 200ms)
+ * with a fading scrim; exit plays `.tf-exit-dialog` while the caller keeps
+ * the dialog mounted through its `leaving` phase (see `useOverlayPresence`
+ * in `src/lib/presence.ts`). Reduced motion collapses both to an instant
+ * fade via the global rule, so there is never a transform to suppress and
+ * nothing delays interaction. The animation classes never touch focus:
+ * entry, trap, and Esc behave exactly as before.
  */
 
 import { useEffect, useId, useRef } from 'react'
@@ -48,6 +52,12 @@ export interface DialogProps {
   footer?: ReactNode | undefined
   children?: ReactNode | undefined
   className?: string | undefined
+  /**
+   * True while the exit animation is playing. The caller keeps rendering
+   * the dialog — with the background inert — until its presence hook reports
+   * unmount; Dialog only swaps the animation class.
+   */
+  leaving?: boolean | undefined
 }
 
 export function Dialog({
@@ -58,6 +68,7 @@ export function Dialog({
   footer,
   children,
   className,
+  leaving = false,
 }: DialogProps) {
   const reactId = useId()
   const titleId = `${reactId}-title`
@@ -107,7 +118,13 @@ export function Dialog({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         {/* Scrim: never dismisses (see module comment). */}
-        <div aria-hidden="true" className="fixed inset-0 bg-bg-overlay" />
+        <div
+          aria-hidden="true"
+          className={cn(
+            'fixed inset-0 bg-bg-overlay',
+            leaving ? 'tf-exit-fade' : 'tf-enter-fade',
+          )}
+        />
         <div
           ref={panelRef}
           role="dialog"
@@ -118,6 +135,7 @@ export function Dialog({
             'relative w-full rounded-lg border border-border-default',
             'bg-bg-surface p-6 shadow-lg',
             WIDTH_CLASSES[width],
+            leaving ? 'tf-exit-dialog' : 'tf-enter-dialog',
             className,
           )}
         >
